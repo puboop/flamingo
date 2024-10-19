@@ -55,6 +55,10 @@ cover/
 *.mo
 *.pot
 
+log/
+pki_files/
+.idea/
+
 # Django stuff:
 *.log
 local_settings.py

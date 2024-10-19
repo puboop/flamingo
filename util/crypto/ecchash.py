@@ -8,19 +8,22 @@ import math
 import struct
 from random import choice
 import sys
+
 if sys.version_info[0] == 3:
     xrange = range
     _as_bytes = lambda x: x if isinstance(x, bytes) else bytes(x, "utf-8")
-    _strxor = lambda str1, str2: bytes( s1 ^ s2 for (s1, s2) in zip(str1, str2) )
+    _strxor = lambda str1, str2: bytes(s1 ^ s2 for (s1, s2) in zip(str1, str2))
 else:
     _as_bytes = lambda x: x
-    _strxor = lambda str1, str2: ''.join( chr(ord(s1) ^ ord(s2)) for (s1, s2) in zip(str1, str2) )
+    _strxor = lambda str1, str2: ''.join(chr(ord(s1) ^ ord(s2)) for (s1, s2) in zip(str1, str2))
+
 
 def to_hex(octet_string):
     if isinstance(octet_string, str):
         return "".join("{:02x}".format(ord(c)) for c in octet_string)
     assert isinstance(octet_string, bytes)
     return "".join("{:02x}".format(c) for c in octet_string)
+
 
 # defined in RFC 3447, section 4.1
 def I2OSP(val, length):
@@ -36,6 +39,7 @@ def I2OSP(val, length):
     assert OS2IP(ret, True) == val
     return ret
 
+
 # defined in RFC 3447, section 4.2
 def OS2IP(octets, skip_assert=False):
     ret = 0
@@ -46,6 +50,7 @@ def OS2IP(octets, skip_assert=False):
         assert octets == I2OSP(ret, len(octets))
     return ret
 
+
 # from draft-irtf-cfrg-hash-to-curve-07
 def hash_to_field(msg, count, modulus, degree, blen, expander):
     len_in_bytes = count * degree * blen
@@ -55,10 +60,11 @@ def hash_to_field(msg, count, modulus, degree, blen, expander):
         e_vals = [None] * degree
         for j in xrange(0, degree):
             elm_offset = blen * (j + i * degree)
-            tv = uniform_bytes[elm_offset : (elm_offset + blen)]
+            tv = uniform_bytes[elm_offset: (elm_offset + blen)]
             e_vals[j] = OS2IP(tv) % modulus
         u_vals[i] = e_vals
     return u_vals
+
 
 # from draft-irtf-cfrg-hash-to-curve-07
 # hash_fn should be, e.g., hashlib.shake_128 (available in Python3 only)
@@ -74,16 +80,17 @@ def expand_message_xof(msg, dst, len_in_bytes, hash_fn, security_param, result_s
     uniform_bytes = hash_fn(msg_prime).digest(int(len_in_bytes))
 
     vector = {
-        "msg": msg,
-        "len_in_bytes": "0x%x" % len_in_bytes,
-        "k": "0x%x" % security_param,
-        "DST_prime": to_hex(dst_prime),
-        "msg_prime": to_hex(msg_prime),
+        "msg"          : msg,
+        "len_in_bytes" : "0x%x" % len_in_bytes,
+        "k"            : "0x%x" % security_param,
+        "DST_prime"    : to_hex(dst_prime),
+        "msg_prime"    : to_hex(msg_prime),
         "uniform_bytes": to_hex(uniform_bytes),
     }
     result_set.append(vector)
 
     return uniform_bytes
+
 
 # from draft-irtf-cfrg-hash-to-curve-07
 # hash_fn should be, e.g., hashlib.sha256
@@ -118,19 +125,20 @@ def expand_message_xmd(msg, dst, len_in_bytes, hash_fn, security_param, result_s
 
     # assemble output
     uniform_bytes = (b'').join(b_vals)
-    output = uniform_bytes[0 : len_in_bytes]
+    output = uniform_bytes[0: len_in_bytes]
 
     vector = {
-        "msg": msg,
-        "len_in_bytes": "0x%x" % len_in_bytes,
-        "k": "0x%x" % security_param,
-        "DST_prime": to_hex(dst_prime),
-        "msg_prime": to_hex(msg_prime),
+        "msg"          : msg,
+        "len_in_bytes" : "0x%x" % len_in_bytes,
+        "k"            : "0x%x" % security_param,
+        "DST_prime"    : to_hex(dst_prime),
+        "msg_prime"    : to_hex(msg_prime),
         "uniform_bytes": to_hex(output),
     }
     result_set.append(vector)
 
     return output
+
 
 class Expander(object):
     def __init__(self, name, dst, dst_prime, hash_fn, security_param):
@@ -153,12 +161,13 @@ class Expander(object):
 
     def __dict__(self):
         return {
-            "name": self.name,
-            "dst": to_hex(self.dst),
-            "hash": self.hash_name(),
-            "k": "0x%x" % self.security_param,
+            "name" : self.name,
+            "dst"  : to_hex(self.dst),
+            "hash" : self.hash_name(),
+            "k"    : "0x%x" % self.security_param,
             "tests": json.dumps(self.test_vectors),
         }
+
 
 class XMDExpander(Expander):
     def __init__(self, dst, hash_fn, security_param):
@@ -173,19 +182,23 @@ class XMDExpander(Expander):
     def expand_message(self, msg, len_in_bytes):
         return expand_message_xmd(msg, self._dst, len_in_bytes, self.hash_fn, self.security_param, self.test_vectors)
 
+
 class XOFExpander(Expander):
     def __init__(self, dst, hash_fn, security_param):
         dst_prime = _as_bytes(dst)
         if len(dst_prime) > 255:
             # https://cfrg.github.io/draft-irtf-cfrg-hash-to-curve/draft-irtf-cfrg-hash-to-curve.html#name-using-dsts-longer-than-255-
-            dst_prime = hash_fn(_as_bytes("H2C-OVERSIZE-DST-") + _as_bytes(dst)).digest(math.ceil(2 * security_param / 8))
+            dst_prime = hash_fn(_as_bytes("H2C-OVERSIZE-DST-") + _as_bytes(dst)).digest(
+                math.ceil(2 * security_param / 8))
         super(XOFExpander, self).__init__("expand_message_xof", dst, dst_prime, hash_fn, security_param)
 
     def expand_message(self, msg, len_in_bytes):
         return expand_message_xof(msg, self._dst, len_in_bytes, self.hash_fn, self.security_param, self.test_vectors)
 
+
 def _random_string(strlen):
-    return ''.join( chr(choice(range(65, 65 + 26))) for _ in range(0, strlen))
+    return ''.join(chr(choice(range(65, 65 + 26))) for _ in range(0, strlen))
+
 
 def _test_xmd():
     msg = _random_string(48)
@@ -198,7 +211,8 @@ def _test_xmd():
         # check for unique outputs
         key = result[:16]
         ress[key] = ress.get(key, 0) + 1
-    assert all( x == 1 for x in ress.values() )
+    assert all(x == 1 for x in ress.values())
+
 
 def _test_xof():
     msg = _random_string(48)
@@ -211,68 +225,69 @@ def _test_xof():
         # check for unique outputs
         key = result[:16]
         ress[key] = ress.get(key, 0) + 1
-    assert all( x == 1 for x in ress.values() )
+    assert all(x == 1 for x in ress.values())
+
 
 def test_expand():
     _test_xmd()
     if sys.version_info[0] == 3:
         _test_xof()
 
-def test_dst(suite_name, L = 0):
+
+def test_dst(suite_name, L=0):
     length = len("QUUX-V01-CS02-with-") + len(suite_name) + 1
     dst = "-".join(filter(None, ["QUUX-V01-CS02-with", suite_name, "1" * max(0, L - length)]))
     return dst
 
 
 def sgn0(x):
-    if x <= 0: 
+    if x <= 0:
         return 1
-    else: 
+    else:
         return 0
+
 
 def map_to_curve(u):
     # map a field element u in Z_p to a EC point
-    p = 2**256 - 2**224 + 2**192 + 2**96 - 1
+    p = 2 ** 256 - 2 ** 224 + 2 ** 192 + 2 ** 96 - 1
     Z = p - 10
 
     a = p - 3
     b = int("0x5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B", 0)
 
-   
-    tv1 = libnum.invmod((100 * pow(u,4,p) + (-10) * pow(u,2,p))%p, p)
-    
+    tv1 = libnum.invmod((100 * pow(u, 4, p) + (-10) * pow(u, 2, p)) % p, p)
 
     x1 = ((-b * pow(a, -1, p)) * (1 + tv1)) % p
-   
+
     if tv1 == 0:
         x1 = (b * pow(30, -1, p)) % p
 
-    gx1 = x1**3 % p
+    gx1 = x1 ** 3 % p
     gx1 = (gx1 + a * x1) % p
     gx1 = (gx1 + b) % p
 
-    x2 = ((-10) * pow(u,2,p) * x1) % p
-  
-    gx2 = x2**3 % p
+    x2 = ((-10) * pow(u, 2, p) * x1) % p
+
+    gx2 = x2 ** 3 % p
     gx2 = (gx2 + a * x2) % p
     gx2 = (gx2 + b) % p
 
     x = None
     y = None
 
-    if libnum.has_sqrtmod(gx1, {p:1}):
+    if libnum.has_sqrtmod(gx1, {p: 1}):
         x = x1
-        y = next(libnum.sqrtmod(gx1, {p:1}))
-    else: 
+        y = next(libnum.sqrtmod(gx1, {p: 1}))
+    else:
         x = x2
-        y = next(libnum.sqrtmod(gx2, {p:1}))
-    
+        y = next(libnum.sqrtmod(gx2, {p: 1}))
 
     if sgn0(u) != sgn0(y):
         y = -y
 
     hash_point = ECC.EccPoint(x, y)
     return hash_point
+
 
 def hash_str_to_curve(msg, count, modulus, degree, blen, expander):
     u = hash_to_field(msg, count, modulus, degree, blen, expander)
@@ -284,7 +299,7 @@ def hash_str_to_curve(msg, count, modulus, degree, blen, expander):
 
 
 # NIST P-256
-p = 2**256 - 2**224 + 2**192 + 2**96 - 1
+p = 2 ** 256 - 2 ** 224 + 2 ** 192 + 2 ** 96 - 1
 n = 115792089210356248762697446949407573529996955224135760342422259061068512044369
 m = 1
 L = 48
@@ -300,7 +315,7 @@ if __name__ == "__main__":
     # msg, count, modulus, degree, blen, expander
 
     dst = test_dst("P256_XMD:SHA-256_SSWU_RO_")
-    res = hash_str_to_curve(msg="abcdeefekf", count=2, modulus=p, degree=m, blen=L, 
-        expander=XMDExpander(dst, hashlib.sha256, k))
+    res = hash_str_to_curve(msg="abcdeefekf", count=2, modulus=p, degree=m, blen=L,
+                            expander=XMDExpander(dst, hashlib.sha256, k))
 
     print(res.x, res.y)

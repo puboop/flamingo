@@ -79,26 +79,25 @@ class SA_ServiceAgent(Agent):
         self.round_time = round_time
 
         # Agent accumulation of elapsed times by category of task.
-        self.elapsed_time = {'ADKEY': pd.Timedelta(0),
-                             'GRAPH': pd.Timedelta(0),
-                             'SHARE': pd.Timedelta(0),
-                             'COLLECTION': pd.Timedelta(0),
-                             'CROSSCHECK': pd.Timedelta(0),
+        self.elapsed_time = {'ADKEY'         : pd.Timedelta(0),
+                             'GRAPH'         : pd.Timedelta(0),
+                             'SHARE'         : pd.Timedelta(0),
+                             'COLLECTION'    : pd.Timedelta(0),
+                             'CROSSCHECK'    : pd.Timedelta(0),
                              'RECONSTRUCTION': pd.Timedelta(0),
                              }
 
         # How many iterations of the protocol should be run?
         self.no_of_iterations = iterations
 
-
         # The list of all users id
-        self.users = users 
+        self.users = users
 
-        self.neighbors = {} 
+        self.neighbors = {}
 
         self.user_vectors = {}
         self.recv_user_vectors = {}
-    
+
         self.recv_user_pubkeys = {}
         self.user_pubkeys = {}
 
@@ -110,7 +109,7 @@ class SA_ServiceAgent(Agent):
 
         self.backup_shares_mi = {}
         self.recv_backup_shares_mi = {}
-        
+
         self.online_set = set()
         self.offline_set = set()
 
@@ -123,8 +122,7 @@ class SA_ServiceAgent(Agent):
         self.recv_recon_shares_ai = {}
         self.recon_index = {}
         self.recv_recon_index = {}
-        
-       
+
         # Track the current iteration and round of the protocol.
         self.current_iteration = 1
         self.current_hash = 0
@@ -150,6 +148,7 @@ class SA_ServiceAgent(Agent):
             5: "check_alive",
             6: "reconstruction",
         }
+
     # Simulation lifecycle messages.
 
     def kernelStarting(self, startTime):
@@ -173,20 +172,20 @@ class SA_ServiceAgent(Agent):
     def kernelStopping(self):
         # Add the server time components to the custom state in the Kernel, for output to the config.
         # Note that times which should be reported in the mean per iteration are already so computed.
-        
+
         self.kernel.custom_state['srv_adkey'] += (
-            self.elapsed_time['ADKEY'] / self.no_of_iterations)
+                self.elapsed_time['ADKEY'] / self.no_of_iterations)
         self.kernel.custom_state['srv_graph'] += (
-            self.elapsed_time['GRAPH'] / self.no_of_iterations)
+                self.elapsed_time['GRAPH'] / self.no_of_iterations)
         self.kernel.custom_state['srv_share'] += (
-            self.elapsed_time['SHARE'] / self.no_of_iterations)
-        
+                self.elapsed_time['SHARE'] / self.no_of_iterations)
+
         self.kernel.custom_state['srv_collection'] += (
-            self.elapsed_time['COLLECTION'] / self.no_of_iterations)
+                self.elapsed_time['COLLECTION'] / self.no_of_iterations)
         self.kernel.custom_state['srv_crosscheck'] += (
-            self.elapsed_time['CROSSCHECK'] / self.no_of_iterations)
+                self.elapsed_time['CROSSCHECK'] / self.no_of_iterations)
         self.kernel.custom_state['srv_reconstruction'] += (
-            self.elapsed_time['RECONSTRUCTION'] / self.no_of_iterations)
+                self.elapsed_time['RECONSTRUCTION'] / self.no_of_iterations)
 
         # Allow the base class to perform stopping activities.
         super().kernelStopping()
@@ -222,9 +221,9 @@ class SA_ServiceAgent(Agent):
             dt_protocol_start = pd.Timestamp('now')
 
             if msg.body['iteration'] == self.current_iteration:
-         
-                self.recv_user_pubkeys[sender_id] = msg.body['pubkey'] 
-               
+
+                self.recv_user_pubkeys[sender_id] = msg.body['pubkey']
+
             else:
                 print("Server receives PUBKEY from iteration", msg.body['iteration'],
                       " client ", msg.body['sender'])
@@ -233,22 +232,22 @@ class SA_ServiceAgent(Agent):
             dt_protocol_start = pd.Timestamp('now')
 
             if msg.body['iteration'] == self.current_iteration:
-                
+
                 # store who chooses each client
                 self.recv_user_choice[sender_id] = msg.body['choice']
-                 
+
             else:
                 print("Server receives CHOICE from iteration", msg.body['iteration'],
                       " client ", msg.body['sender'])
 
         elif msg.body['msg'] == "BACKUP":
-            
+
             if msg.body['iteration'] == self.current_iteration:
-                
+
                 # store who chooses each client
                 self.recv_backup_shares_ai[sender_id] = msg.body['backup_shares_ai']
                 self.recv_backup_shares_mi[sender_id] = msg.body['backup_shares_mi']
-                
+
             else:
                 print("Server receives BACKUP from iteration", msg.body['iteration'],
                       " client ", msg.body['sender'])
@@ -258,20 +257,20 @@ class SA_ServiceAgent(Agent):
             dt_protocol_start = pd.Timestamp('now')
 
             if msg.body['iteration'] == self.current_iteration:
-                
+
                 # Store the vectors
                 self.recv_user_vectors[sender_id] = msg.body['vector']
-                
+
             else:
                 print("Server receives VECTORS from iteration", msg.body['iteration'],
                       " client ", msg.body['sender'])
 
             # Accumulate into offline setup.
             self.recordTime(dt_protocol_start, "COLLECTION")
-        
+
         elif msg.body['msg'] == "ACK":
             dt_protocol_start = pd.Timestamp('now')
-            
+
             if msg.body['iteration'] == self.current_iteration:
                 self.recv_ack[sender_id] = msg.body['ack']
             else:
@@ -279,21 +278,20 @@ class SA_ServiceAgent(Agent):
                       " client ", msg.body['sender'])
 
         elif msg.body['msg'] == "SHARES":
-            
+
             dt_protocol_start = pd.Timestamp('now')
-            
+
             if msg.body['iteration'] == self.current_iteration:
-                
+
                 if len(msg.body['shares_of_mi']) != 0:
                     self.recv_recon_shares_mi[sender_id] = msg.body['shares_of_mi']
                 if len(msg.body['shares_of_ai']) != 0:
                     self.recv_recon_shares_ai[sender_id] = msg.body['shares_of_ai']
-                
+
             else:
                 print("Server receives SHARED_RESULT from iteration", msg.body['iteration'],
                       " client ", msg.body['sender'])
 
-            
             self.recordTime(dt_protocol_start, "RECONSTRUCTION")
 
     # NOTE: the currentTime is the 'start' of the function
@@ -301,16 +299,16 @@ class SA_ServiceAgent(Agent):
     # Processing and replying the messages.
     def init_func(self, currentTime):
         dt_protocol_start = pd.Timestamp('now')
-      
+
         self.current_round = 1
-        
+
         server_comp_delay = pd.Timestamp('now') - dt_protocol_start
         self.setWakeup(currentTime + server_comp_delay + pd.Timedelta('3s'))
 
     def advertise_keys_read_from_pool(self):
         self.user_pubkeys = self.recv_user_pubkeys
         self.recv_user_pubkeys = {}
-    
+
     def advertise_keys_clear_pool(self):
         # Empty the pool for upcoming messages 
         # before server sends requests
@@ -319,7 +317,7 @@ class SA_ServiceAgent(Agent):
     def advertise_keys(self, currentTime):
         dt_protocol_start = pd.Timestamp('now')
         self.advertise_keys_read_from_pool()
-       
+
         print("Server collected #pubkeys =", len(self.user_pubkeys))
 
         self.advertise_keys_clear_pool()
@@ -327,13 +325,13 @@ class SA_ServiceAgent(Agent):
         # send to users who send their pubkeys
         for id in self.user_pubkeys:
             self.sendMessage(id,
-                             Message({"msg": "REQ_CHOICE",
-                                      "iteration": self.current_iteration,
-                                      "sender": 0,
+                             Message({"msg"                  : "REQ_CHOICE",
+                                      "iteration"            : self.current_iteration,
+                                      "sender"               : 0,
                                       "active_pubkey_clients": list(self.user_pubkeys.keys()),
                                       }),
                              tag="comm_active_clients")
-        
+
         server_comp_delay = pd.Timestamp('now') - dt_protocol_start
         print("Server time for advertise_keys:", server_comp_delay)
 
@@ -362,7 +360,7 @@ class SA_ServiceAgent(Agent):
         dt_protocol_start = pd.Timestamp('now')
         self.establish_graph_read_from_pool()
         # Server should know a complete graph, who is whose neighbors
-      
+
         print("Server collected #graph choice =", len(self.recv_user_choice))
 
         # if set(self.user_choice.keys()) != set(self.user_pubkeys.keys()):
@@ -378,7 +376,7 @@ class SA_ServiceAgent(Agent):
 
         # store neighbors of each client.
         # neighbors[i] is the neighbors of client i.
-        self.neighbors = {}  
+        self.neighbors = {}
 
         for i in self.user_choice:
             tmp = set()
@@ -391,13 +389,13 @@ class SA_ServiceAgent(Agent):
             # remove those who are not in user_choice.keys() from user_choice[i]
             # find those who are in user_choice but not in user_pubkeys
 
-            for straggler in set(self.users)-set(self.user_choice.keys()):
+            for straggler in set(self.users) - set(self.user_choice.keys()):
                 if straggler in self.user_choice[i]:
                     self.user_choice[i].remove(straggler)
-            
+
             self.neighbors[i] = (neighbors_in[i]).union(self.user_choice[i])
             # print("client", i, "has neighbors =", self.neighbors[i])
-        
+
         # at this point, the server should know the complete graph
 
         # neighbors_pubkeys[i] stores client i's neighbors pubkeys
@@ -409,24 +407,22 @@ class SA_ServiceAgent(Agent):
                 tmpls[j] = self.user_pubkeys[j]
             neighbors_pubkeys[id] = tmpls
 
-      
         # when sending the graph, also send related pubkeys.
         # for a client, pubkeys include its neighbors_in and neighbors_out
-        
+
         print("number of active choice clients:", len(self.user_choice.keys()))
 
         for id in self.user_choice:
             self.sendMessage(id,
-                             Message({"msg": "REQ_BACKUP",
-                                      "iteration": self.current_iteration,
-                                      "sender": 0,
-                                      "neighbors": self.neighbors[id],
-                                      "neighbors_pubkeys": neighbors_pubkeys[id],
+                             Message({"msg"                  : "REQ_BACKUP",
+                                      "iteration"            : self.current_iteration,
+                                      "sender"               : 0,
+                                      "neighbors"            : self.neighbors[id],
+                                      "neighbors_pubkeys"    : neighbors_pubkeys[id],
                                       "active_choice_clients": list(self.user_choice.keys()),
                                       }),
                              tag="comm_graph_server")
-        
-        
+
         self.current_round = 3
 
         server_comp_delay = pd.Timestamp('now') - dt_protocol_start
@@ -443,13 +439,14 @@ class SA_ServiceAgent(Agent):
                     tmp_pubkeys[i][j] = (int(neighbors_pubkeys[i][j].x), int(neighbors_pubkeys[i][j].y))
             tmp_neighbor_ids = {}
             for i in self.user_choice:
-                tmp_neighbor_ids[i] = self.neighbors[i] 
-            self.logger.info(f"Server graph choice comm cost: {len(dill.dumps(tmp_pubkeys)) + len(dill.dumps(tmp_neighbor_ids))}")
-       
-         # Here the server should wait a sufficient time to
-         # ensure all user_choice received messages.
-        self.setWakeup(currentTime + server_comp_delay + param.wt_google_share) 
-    
+                tmp_neighbor_ids[i] = self.neighbors[i]
+            self.logger.info(
+                f"Server graph choice comm cost: {len(dill.dumps(tmp_pubkeys)) + len(dill.dumps(tmp_neighbor_ids))}")
+
+        # Here the server should wait a sufficient time to
+        # ensure all user_choice received messages.
+        self.setWakeup(currentTime + server_comp_delay + param.wt_google_share)
+
     def forward_signatures_read_from_pool(self):
         # self.backup_shares_ai[id] is the shares from client id
         # the server should forward the shares to id's neighbors
@@ -468,7 +465,6 @@ class SA_ServiceAgent(Agent):
 
         # ai_shares is a list of length = number of neighbors
         # the server will send each point in ai_shares to each of the client's neighbors
-        
 
         # forward_shares_ai[id] is shares to be forwarded to client id.
         # forward_shares_ai[id] is a dictionary,
@@ -484,7 +480,7 @@ class SA_ServiceAgent(Agent):
         forward_shares_ai = {}
         for i in self.backup_shares_ai:
             for j in self.neighbors[i]:
-                forward_shares_ai[j] = {}   # might be repeatedly initialize, but it's ok
+                forward_shares_ai[j] = {}  # might be repeatedly initialize, but it's ok
 
         for i in self.backup_shares_ai:
             if len(self.neighbors[i]) != len(self.backup_shares_ai[i]):
@@ -493,11 +489,11 @@ class SA_ServiceAgent(Agent):
             for j in self.neighbors[i]:
                 forward_shares_ai[j][i] = self.backup_shares_ai[i][cnt]
                 cnt += 1
-           
+
         forward_shares_mi = {}
         for i in self.backup_shares_mi:
             for j in self.neighbors[i]:
-                forward_shares_mi[j] = {}   # might be repeatedly initialize, but it's ok
+                forward_shares_mi[j] = {}  # might be repeatedly initialize, but it's ok
 
         for i in self.backup_shares_mi:
             if len(self.neighbors[i]) != len(self.backup_shares_mi[i]):
@@ -512,9 +508,9 @@ class SA_ServiceAgent(Agent):
         # at the same time of sending shares, request for vector
         for id in self.user_choice:
             self.sendMessage(id,
-                             Message({"msg": "REQ_VECTOR",
-                                      "iteration": self.current_iteration,
-                                      "sender": 0,
+                             Message({"msg"             : "REQ_VECTOR",
+                                      "iteration"       : self.current_iteration,
+                                      "sender"          : 0,
                                       "backup_shares_ai": forward_shares_ai[id],
                                       "backup_shares_mi": forward_shares_mi[id],
                                       }),
@@ -534,16 +530,16 @@ class SA_ServiceAgent(Agent):
                 tmp_shares[i] = {}
                 for j in forward_shares_ai[i]:
                     tmp_shares[i][j] = (int(forward_shares_ai[i][j][1]), int(forward_shares_mi[i][j][1]))
-            
+
             self.logger.info(f"Server forward shares comm cost: {len(dill.dumps(tmp_shares))}")
-        
+
         self.setWakeup(currentTime + server_comp_delay + param.wt_google_collection)
 
     def collection_read_from_pool(self):
         # assign user vectors to a new var. empty user vectors immediately.
         self.user_vectors = self.recv_user_vectors
         self.recv_user_vectors = {}
-    
+
     def collection_clear_pool(self):
         self.recv_ack = {}
 
@@ -552,26 +548,25 @@ class SA_ServiceAgent(Agent):
 
         self.collection_read_from_pool()
         print("collected vectors =", len(self.user_vectors))
-        
+
         # compute the sum of vectors
         self.vec_sum_partial = np.zeros(self.vector_len, dtype=self.vector_dtype)
         for id in self.user_vectors:
             if len(self.user_vectors[id]) != self.vector_len:
                 raise ValueError("Client sends inconsistent vector length")
-            self.vec_sum_partial += self.user_vectors[id] 
+            self.vec_sum_partial += self.user_vectors[id]
 
-        # here should request alive signatures
+            # here should request alive signatures
         # server should send to the clients who is alive
         self.collection_clear_pool()
         for id in self.user_vectors:
             self.sendMessage(id,
-                             Message({"msg": "REQ_ACK",
-                                      "iteration": self.current_iteration,
+                             Message({"msg"        : "REQ_ACK",
+                                      "iteration"  : self.current_iteration,
                                       "request_ack": 1,
-                                      "alive_set": self.user_vectors,
+                                      "alive_set"  : self.user_vectors,
                                       }),
                              tag="comm_ack_server")
-
 
         self.current_round = 5
         server_comp_delay = pd.Timestamp('now') - dt_protocol_start
@@ -579,7 +574,7 @@ class SA_ServiceAgent(Agent):
 
         self.recordTime(dt_protocol_start, "COLLECTION")
 
-         # print serialization cost
+        # print serialization cost
         if __debug__:
             self.logger.info(f"Server comm for collecting vectors: {len(dill.dumps(self.user_vectors))}")
 
@@ -588,7 +583,7 @@ class SA_ServiceAgent(Agent):
     def check_alive_read_from_pool(self):
         self.ack = self.recv_ack
         self.recv_ack = {}
-    
+
     def check_alive_clear_pool(self):
         self.recv_recon_shares_mi = {}
         self.recv_recon_shares_ai = {}
@@ -606,7 +601,6 @@ class SA_ServiceAgent(Agent):
         for sender in self.ack:
             for recvr in self.ack[sender]:
                 in_neighbors_ack[recvr][sender] = self.ack[sender][recvr]
-        
 
         self.online_set = set(self.user_vectors.keys())
         print("online clients:", len(self.online_set))
@@ -616,13 +610,13 @@ class SA_ServiceAgent(Agent):
 
         # request_mi_shares[id] is a list, storing neighbors to be request 
         # id will receive this, and send to the server the shares of the requested neighbors
-        request_mi_shares = {}  
+        request_mi_shares = {}
         request_ai_shares = {}
 
         # for id in online set, request id's neighbor for shares of mi
         for i in self.user_choice:
             request_mi_shares[i] = []
-        
+
         for i in self.online_set:
             for j in self.neighbors[i]:
                 request_mi_shares[j].append(i)
@@ -630,19 +624,18 @@ class SA_ServiceAgent(Agent):
         # for id in offline set, request id's neighbor for shares of ai
         for i in self.user_choice:
             request_ai_shares[i] = []
-        
+
         for i in self.offline_set:
             for j in self.neighbors[i]:
                 request_ai_shares[j].append(i)
-       
 
         self.check_alive_clear_pool()
 
         for id in self.user_vectors:
             self.sendMessage(id,
-                             Message({"msg": "REQ_SHARES",
-                                      "iteration": self.current_iteration,
-                                      "neighbors_ack": in_neighbors_ack[id], 
+                             Message({"msg"              : "REQ_SHARES",
+                                      "iteration"        : self.current_iteration,
+                                      "neighbors_ack"    : in_neighbors_ack[id],
                                       "request_mi_shares": request_mi_shares,
                                       "request_ai_shares": request_ai_shares,
                                       }),
@@ -653,11 +646,12 @@ class SA_ServiceAgent(Agent):
         print("Server time for check_alive:", server_comp_delay)
 
         self.recordTime(dt_protocol_start, "CROSSCHECK")
-    
+
         if __debug__:
             # print serialization cost 
             self.logger.info(f"Server forward ACK comm: {len(dill.dumps(in_neighbors_ack))}")
-            self.logger.info(f"Server comm for requesting shares: {len(dill.dumps(request_ai_shares)) + len(dill.dumps(request_mi_shares))}")
+            self.logger.info(
+                f"Server comm for requesting shares: {len(dill.dumps(request_ai_shares)) + len(dill.dumps(request_mi_shares))}")
 
         self.setWakeup(currentTime + server_comp_delay + param.wt_google_recontruction)
 
@@ -669,7 +663,7 @@ class SA_ServiceAgent(Agent):
         self.recv_recon_shares_ai = {}
 
     def reconstruction_clear_pool(self):
-        return 
+        return
 
     def reconstruction(self, currentTime):
         dt_protocol_start = pd.Timestamp('now')
@@ -693,17 +687,16 @@ class SA_ServiceAgent(Agent):
             #     continue
             mi_recon, _ = points_to_secret_int(mi_shares, prime=self.prime, isecc=0)
             # should be 16 bytes, but not mi is not correctly reconstructed
-            mi_bytes = (mi_recon&((1<<128)-1)).to_bytes(16, 'big')
-            
+            mi_bytes = (mi_recon & ((1 << 128) - 1)).to_bytes(16, 'big')
+
             prg_mi_holder = AES.new(mi_bytes, AES.MODE_CBC, iv=b"0123456789abcdef")
             data = param.fixed_key * self.vector_len
             prg_mi = prg_mi_holder.encrypt(data)
-                
+
             vec_prg_mi = np.frombuffer(prg_mi, dtype=self.vector_dtype)
 
             self.vec_sum_partial = self.vec_sum_partial - vec_prg_mi
 
-       
         for i in self.offline_set:
             ai_shares = []
             for j in self.recon_shares_ai:
@@ -716,19 +709,19 @@ class SA_ServiceAgent(Agent):
             pairwise_keys = {}
             for j in self.neighbors[i]:  # change to neighbors
                 pairwise_keys[j] = ai_recon * self.user_pubkeys[j]
-            
+
             # compute masks
             prg_pairwise = {}
             vec_prg_pairwise = {}
             for j in pairwise_keys:
-                pairwise_seed = (int(pairwise_keys[j].x) & (1<<128) - 1).to_bytes(16, 'big')
-                    
+                pairwise_seed = (int(pairwise_keys[j].x) & (1 << 128) - 1).to_bytes(16, 'big')
+
                 prg_pairwise_holder = AES.new(pairwise_seed, AES.MODE_CBC, iv=b"0123456789abcdef")
                 data = param.fixed_key * self.vector_len
- 
-                prg_pairwise[j] = prg_pairwise_holder.encrypt(data)                
+
+                prg_pairwise[j] = prg_pairwise_holder.encrypt(data)
                 vec_prg_pairwise[j] = np.frombuffer(prg_pairwise[j], dtype=self.vector_dtype)
-                    
+
                 # unmask vector with PRG(r_ij)
                 if len(vec_prg_pairwise[j]) != self.vector_len:
                     raise ValueError("vector length error")
@@ -738,8 +731,7 @@ class SA_ServiceAgent(Agent):
                     self.vec_sum_partial = self.vec_sum_partial - vec_prg_pairwise[j]
                 else:
                     raise ValueError("self.id =", self.id, " should not appear in neighbors", self.neighbors)
-   
-   
+
         print("final sum =", self.vec_sum_partial)
 
         server_comp_delay = pd.Timestamp('now') - dt_protocol_start
@@ -747,25 +739,25 @@ class SA_ServiceAgent(Agent):
 
         self.recordTime(dt_protocol_start, "RECONSTRUCTION")
 
-        if __debug__: # print serialization size
+        if __debug__:  # print serialization size
             tmp_recon_ai = {}
             for i in self.recon_shares_ai:
                 tmp_recon_ai[i] = {}
                 for j in self.recon_shares_ai[i]:
                     tmp_recon_ai[i][j] = int(self.recon_shares_ai[i][j][1])
-        
+
             tmp_recon_mi = {}
             for i in self.recon_shares_mi:
                 tmp_recon_mi[i] = {}
                 for j in self.recon_shares_mi[i]:
                     tmp_recon_mi[i][j] = int(self.recon_shares_mi[i][j][1])
-            self.logger.info(f"Server comm for recv recon shares: {len(dill.dumps(tmp_recon_ai)) + len(dill.dumps(tmp_recon_mi))}")
+            self.logger.info(
+                f"Server comm for recv recon shares: {len(dill.dumps(tmp_recon_ai)) + len(dill.dumps(tmp_recon_mi))}")
 
         print()
         print("######## Iteration completion ########")
         print(f"[Server] finished iteration {self.current_iteration} at {currentTime + server_comp_delay}")
         print()
-        
 
         # Reset iteration variables before sending REQ
         self.current_round = 1
@@ -775,22 +767,21 @@ class SA_ServiceAgent(Agent):
 
         if (self.current_iteration > self.no_of_iterations):
             return
-        
+
         self.recv_user_pubkeys = {}
 
         for id in self.users:
             self.sendMessage(id,
-                             Message({"msg": "REQ_PUBKEY",
+                             Message({"msg"      : "REQ_PUBKEY",
                                       "iteration": self.current_iteration,
-                                      "sender": 0,
-                                      "output": 1,
+                                      "sender"   : 0,
+                                      "output"   : 1,
                                       }),
                              tag="comm_output_server")
 
         self.setWakeup(currentTime + server_comp_delay + param.wt_google_adkey)
 
-
-# ======================== UTIL ========================
+    # ======================== UTIL ========================
 
     def recordTime(self, startTime, categoryName):
         # Accumulate into offline setup.

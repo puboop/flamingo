@@ -31,7 +31,7 @@ def secret_int_to_points(secret_int, point_threshold, num_points, prime=None):
         prime = get_large_enough_prime([secret_int, num_points])
     if not prime:
         raise ValueError("Error! Secret is too long for share calculation!")
-    coefficients = random_polynomial(point_threshold-1, secret_int, prime)
+    coefficients = random_polynomial(point_threshold - 1, secret_int, prime)
     points = get_polynomial_points(coefficients, num_points, prime)
     return points
 

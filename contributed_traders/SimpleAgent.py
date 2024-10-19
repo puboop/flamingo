@@ -4,6 +4,7 @@ import numpy as np
 import os
 from contributed_traders.util import get_file
 
+
 class SimpleAgent(TradingAgent):
     """
     Simple Trading Agent that compares the past mid-price observations and places a
@@ -24,15 +25,15 @@ class SimpleAgent(TradingAgent):
         self.mid_list, self.avg_win1_list, self.avg_win2_list = [], [], []
         self.log_orders = log_orders
         self.state = "AWAITING_WAKEUP"
-        #self.window1 = 100 
-        #self.window2 = 5 
+        # self.window1 = 100
+        # self.window2 = 5
 
     def kernelStarting(self, startTime):
         super().kernelStarting(startTime)
         # Read in the configuration through util
         with open(get_file('simple_agent.cfg'), 'r') as f:
             self.window1, self.window2 = [int(w) for w in f.readline().split()]
-        #print(f"{self.window1} {self.window2}")
+        # print(f"{self.window1} {self.window2}")
 
     def wakeup(self, currentTime):
         """ Agent wakeup is determined by self.wake_up_freq """
@@ -60,17 +61,21 @@ class SimpleAgent(TradingAgent):
                 bid, _, ask, _ = self.getKnownBidAsk(self.symbol)
                 if bid and ask:
                     self.mid_list.append((bid + ask) / 2)
-                    if len(self.mid_list) > self.window1: self.avg_win1_list.append(pd.Series(self.mid_list).ewm(span=self.window1).mean().values[-1].round(2))
-                    if len(self.mid_list) > self.window2: self.avg_win2_list.append(pd.Series(self.mid_list).ewm(span=self.window2).mean().values[-1].round(2))
+                    if len(self.mid_list) > self.window1: self.avg_win1_list.append(
+                        pd.Series(self.mid_list).ewm(span=self.window1).mean().values[-1].round(2))
+                    if len(self.mid_list) > self.window2: self.avg_win2_list.append(
+                        pd.Series(self.mid_list).ewm(span=self.window2).mean().values[-1].round(2))
                     if len(self.avg_win1_list) > 0 and len(self.avg_win2_list) > 0 and len(self.orders) == 0:
                         if self.avg_win1_list[-1] >= self.avg_win2_list[-1]:
                             # Check that we have enough cash to place the order
                             if self.holdings['CASH'] >= (self.size * ask):
-                                self.placeLimitOrder(self.symbol, quantity=self.size, is_buy_order=True, limit_price=ask)
+                                self.placeLimitOrder(self.symbol, quantity=self.size, is_buy_order=True,
+                                                     limit_price=ask)
                         else:
                             if self.symbol in self.holdings and self.holdings[self.symbol] > 0:
                                 order_size = min(self.size, self.holdings[self.symbol])
-                                self.placeLimitOrder(self.symbol, quantity=order_size, is_buy_order=False, limit_price=bid)
+                                self.placeLimitOrder(self.symbol, quantity=order_size, is_buy_order=False,
+                                                     limit_price=bid)
             self.setWakeup(currentTime + self.getWakeFrequency())
             self.state = 'AWAITING_WAKEUP'
 

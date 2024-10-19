@@ -19,24 +19,26 @@ silent_mode = False
 # Use it for all permanent logging print statements to allow fastest possible
 # execution when verbose flag is not set.  This is especially fast because
 # the arguments will not even be formatted when in silent mode.
-def log_print (str, *args):
-  if not silent_mode: print (str.format(*args))
+def log_print(str, *args):
+    if not silent_mode: print(str.format(*args))
 
 
 # Accessor method for the global silent_mode variable.
-def be_silent ():
-  return silent_mode
+def be_silent():
+    return silent_mode
 
 
 # Utility method to flatten nested lists.
 def delist(list_of_lists):
     return [x for b in list_of_lists for x in b]
 
+
 # Utility function to get agent wake up times to follow a U-quadratic distribution.
 def get_wake_time(open_time, close_time, a=0, b=1):
     """ Draw a time U-quadratically distributed between open_time and close_time.
         For details on U-quadtratic distribution see https://en.wikipedia.org/wiki/U-quadratic_distribution
     """
+
     def cubic_pow(n):
         """ Helper function: returns *real* cube root of a float"""
         if n < 0:
@@ -48,7 +50,7 @@ def get_wake_time(open_time, close_time, a=0, b=1):
     def u_quadratic_inverse_cdf(y):
         alpha = 12 / ((b - a) ** 3)
         beta = (b + a) / 2
-        result = cubic_pow((3 / alpha) * y - (beta - a)**3 ) + beta
+        result = cubic_pow((3 / alpha) * y - (beta - a) ** 3) + beta
         return result
 
     uniform_0_1 = np.random.rand()
@@ -56,6 +58,7 @@ def get_wake_time(open_time, close_time, a=0, b=1):
     wake_time = open_time + random_multiplier * (close_time - open_time)
 
     return wake_time
+
 
 def numeric(s):
     """ Returns numeric type from string, stripping commas from the right.
@@ -68,6 +71,7 @@ def numeric(s):
             return float(s)
         except ValueError:
             return s
+
 
 def get_value_from_timestamp(s, ts):
     """ Get the value of s corresponding to closest datetime to ts.
@@ -85,6 +89,7 @@ def get_value_from_timestamp(s, ts):
     out = s[locs][0] if (isinstance(s[locs], np.ndarray) or isinstance(s[locs], pd.Series)) else s[locs]
 
     return out
+
 
 @contextmanager
 def ignored(warning_str, *exceptions):
@@ -149,12 +154,12 @@ def sigmoid(x, beta):
     Adapted from https://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick/"
     """
     if x >= 0:
-        z = np.exp(-beta*x)
+        z = np.exp(-beta * x)
         return 1 / (1 + z)
     else:
         # if x is less than zero then z will be small, denom can't be
         # zero because it's 1+z.
-        z = np.exp(beta*x)
+        z = np.exp(beta * x)
         return z / (1 + z)
 
 
@@ -167,9 +172,11 @@ def read_key(file_name):
         raise RuntimeError(f"File {file_name} not found. Run setup_pki.py first.")
     return key
 
+
 def read_pk(file_name):
     key = read_key(file_name)
     return key.pointQ
+
 
 def read_sk(file_name):
     key = read_key(file_name)
@@ -182,15 +189,16 @@ def serialize_dim2_ecp(ecp_dict):
         msg[i] = {}
         for j in range(len(ecp_dict[i])):
             msg[i][j] = (int((ecp_dict[i][j]).x), int(ecp_dict[i][j].y))
-        
+
     json_string = json.dumps(msg)
     # byte_count = len(json_string.encode('utf-8'))
     return json_string
-        
+
+
 def deserialize_dim2_ecp(json_string):
     ecp_dict = {}
     msg = json.loads(json_string)
-        
+
     for i in msg:
         tmp_list = []
         for j in msg[i]:
@@ -199,16 +207,18 @@ def deserialize_dim2_ecp(json_string):
             tmp_list.append(ECC.EccPoint(x, y))
         ecp_dict[i] = tmp_list
     return ecp_dict
-    
+
+
 def serialize_dim1_ecp(ecp_list):
     msg = {}
-    for i in range (len(ecp_list)):
+    for i in range(len(ecp_list)):
         msg[i] = (int(ecp_list[i].x), int(ecp_list[i].y))
 
     json_string = json.dumps(msg)
     # byte_count = len(json_string.encode('utf-8'))
     return json_string
-    
+
+
 def deserialize_dim1_ecp(json_string):
     ecp_list = []
     msg = json.loads(json_string)
@@ -217,37 +227,42 @@ def deserialize_dim1_ecp(json_string):
         y = msg[i][1]
         ecp_list.append(ECC.EccPoint(x, y))
     return ecp_list
-    
+
+
 def serialize_dim1_elgamal(elgamal_dict):
     msg = {}
     for i in elgamal_dict:
         json_tuple = json.dumps(i)
-        msg[json_tuple] = (int(elgamal_dict[i][0].x), int(elgamal_dict[i][0].y), 
+        msg[json_tuple] = (int(elgamal_dict[i][0].x), int(elgamal_dict[i][0].y),
                            int(elgamal_dict[i][1].x), int(elgamal_dict[i][1].y))
     json_string = json.dumps(msg)
     return json_string
+
 
 def deserialize_dim1_elgamal(json_string):
     elgamal_dict = {}
     msg = json.loads(json_string)
     for i in msg:
         elgamal_tuple = tuple(json.loads(i))
-        elgamal_dict[elgamal_tuple] = (ECC.EccPoint(msg[i][0], msg[i][1]), 
+        elgamal_dict[elgamal_tuple] = (ECC.EccPoint(msg[i][0], msg[i][1]),
                                        ECC.EccPoint(msg[i][2], msg[i][3]))
     return elgamal_dict
+
 
 def serialize_tuples_bytes(list_of_tuples):
     serialized_list_of_tuples = [(item[0].hex(), item[1].hex()) for item in list_of_tuples]
     json_string = json.dumps(serialized_list_of_tuples)
     return json_string
 
+
 def deserialize_tuples_bytes(json_string):
     deserialized_list_of_tuples = [(bytes.fromhex(item[0]), bytes.fromhex(item[1])) for item in json.loads(json_string)]
     return deserialized_list_of_tuples
 
+
 def serialize_dim1_list(ls):
     return json.dumps(ls)
 
+
 def deserialize_dim1_list(json_string):
     return json.loads(json_string)
-

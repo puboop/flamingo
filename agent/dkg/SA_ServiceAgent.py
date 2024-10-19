@@ -31,11 +31,11 @@ class SA_ServiceAgent(Agent):
         super().__init__(id, name, type, random_state)
 
         # Agent accumulation of elapsed times by category of task.
-        self.elapsed_time = {'SHARE_AND_COMMIT': pd.Timedelta(0),
+        self.elapsed_time = {'SHARE_AND_COMMIT'  : pd.Timedelta(0),
                              'ACCEPT_OR_COMPLAIN': pd.Timedelta(0),
-                             'FORWARD_SHARE': pd.Timedelta(0),
-                             'BCAST_QUAL': pd.Timedelta(0),
-                            }
+                             'FORWARD_SHARE'     : pd.Timedelta(0),
+                             'BCAST_QUAL'        : pd.Timedelta(0),
+                             }
 
         self.users = users  # The list of all users id 
 
@@ -81,7 +81,6 @@ class SA_ServiceAgent(Agent):
             4: "bcast_qual",
         }
 
-
         self.arrival_time_share_and_commit = []
         self.arrival_time_accept_or_complain = []
         self.arrival_time_forward_share = []
@@ -124,7 +123,7 @@ class SA_ServiceAgent(Agent):
 
         # Get the sender's id
         sender_id = msg.body['sender']
-        
+
         if msg.body['iteration'] != self.current_iteration:
             raise RuntimeError("wrong iteration number.")
             return
@@ -153,20 +152,18 @@ class SA_ServiceAgent(Agent):
 
             # put s_ij in the pool
             self.recv_bcast_shares[sender_id] = msg.body['bcast_sij']
-            
+
         elif msg.body['msg'] == "bcast_qual":
             self.arrival_time_bcast_qual.append(currentTime)
-            
+
             # put in the pool and forward quals to all decryptors
             self.recv_quals[sender_id] = msg.body['qual']
-
 
     # Processing and replying the messages.
 
     def initFunc(self, currentTime):
         self.current_round = 1
         self.setWakeup(currentTime + pd.Timedelta('1s'))
-
 
     def share_and_commit(self, currentTime):
         dt_protocol_start = pd.Timestamp('now')
@@ -185,8 +182,8 @@ class SA_ServiceAgent(Agent):
                 forward_shares[row_id] = self.users_shares[row_id][id]
 
             self.sendMessage(id,
-                             Message({"msg": "SHARE_AND_COMMIT",
-                                      "shares": forward_shares,
+                             Message({"msg"        : "SHARE_AND_COMMIT",
+                                      "shares"     : forward_shares,
                                       "commitments": self.users_commitments,
                                       }),
                              tag="server_share_and_commit")
@@ -210,7 +207,7 @@ class SA_ServiceAgent(Agent):
                     complaints_list.append(row_id)
 
             self.sendMessage(id,
-                             Message({"msg": "ACCEPT_OR_COMPLAIN",
+                             Message({"msg"            : "ACCEPT_OR_COMPLAIN",
                                       "complaints_from": complaints_list,
                                       }),
                              tag="server_accept_or_complain")
@@ -230,23 +227,23 @@ class SA_ServiceAgent(Agent):
         # Each party has a list of bcast sij
         for id in self.users:
             self.sendMessage(id,
-                             Message({"msg": "FORWARD_SHARE",
+                             Message({"msg"         : "FORWARD_SHARE",
                                       "bcast_shares": self.bcast_shares,
                                       }),
                              tag="server_forward_share")
 
         self.current_round = 4
         self.setWakeup(currentTime + pd.Timedelta('2s'))
-    
+
     def bcast_qual(self, currentTime):
-        
+
         # Server forwards to all the clients, each client checks
         self.quals = self.recv_quals
         self.recv_quals = {}
 
         for id in self.users:
             self.sendMessage(id,
-                             Message({"msg": "BCAST_QUAL",
+                             Message({"msg"   : "BCAST_QUAL",
                                       "output": self.quals,
                                       }),
                              tag="server_bcast_qual")
@@ -260,8 +257,7 @@ class SA_ServiceAgent(Agent):
         # End of the protocol
         return
 
-
-# ======================== UTIL ========================
+    # ======================== UTIL ========================
 
     def printMessageArrivalTime(self, startTime):
         print(f"\n Message arrival time (seconds) for 4 steps: \n")
@@ -269,7 +265,7 @@ class SA_ServiceAgent(Agent):
         step1_list = []
         for i in range(len(self.arrival_time_share_and_commit)):
             step1_list.append((self.arrival_time_share_and_commit[i] - startTime).total_seconds())
-        
+
         print(step1_list)
 
         step2_list = []
