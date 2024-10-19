@@ -64,6 +64,7 @@ class SA_ClientAgent(Agent):
 
         """Set parameters."""
         self.num_clients = num_clients
+        # 邻域大小
         self.neighborhood_size = neighborhood_size
         self.vector_len = param.vector_len
         self.vector_dtype = param.vector_type
@@ -81,6 +82,7 @@ class SA_ClientAgent(Agent):
 
         # If it is in the committee:
         # read pubkeys of every other client and precompute pairwise keys
+        # 读取其他所有客户端的pubkeys并预计算成对密钥
         self.symmetric_keys = {}
         if self.id in self.user_committee:
             for i in range(num_clients):
@@ -197,14 +199,20 @@ class SA_ClientAgent(Agent):
         dt_protocol_start = pd.Timestamp('now')
 
         # Find this client's neighbors: parse graph from PRG(PRF(iter, root_seed))
-        self.neighbors_list = param.findNeighbors(param.root_seed, self.current_iteration, self.num_clients, self.id,
+        # 查找此客户端的邻居：从PRG解析图（PRF（iter，root_seed））
+        self.neighbors_list = param.findNeighbors(param.root_seed,
+                                                  self.current_iteration,
+                                                  self.num_clients,
+                                                  self.id,
                                                   self.neighborhood_size)
         if __debug__:
             self.logger.info("client indices in neighbors list starts from 0")
             self.logger.info(f"client {self.id} neighbors list: {self.neighbors_list}")
 
         # Download public keys of neighbors from PKI file
+        # 从PKI文件下载邻居的公钥
         # Client index starting frrom 0
+        # 客户端索引从0开始
         neighbor_pubkeys = {}
         for id in self.neighbors_list:
             neighbor_pubkeys[id] = util.read_pk(f"pki_files/client{id}.pem")
@@ -215,13 +223,15 @@ class SA_ClientAgent(Agent):
 
         mi_shares = secret_int_to_points(secret_int=mi_number,
                                          point_threshold=int(param.fraction * len(self.user_committee)),
-                                         num_points=len(self.user_committee), prime=self.prime)
+                                         num_points=len(self.user_committee),
+                                         prime=self.prime)
 
         committee_pubkeys = {}
         for id in self.user_committee:
             committee_pubkeys[id] = util.read_pk(f"pki_files/client{id}.pem")
 
         # separately encrypt each share
+        # 分别加密每个共享
         enc_mi_shares = []
         # id is the x-axis
         cnt = 0
@@ -236,11 +246,13 @@ class SA_ClientAgent(Agent):
             # nouce should be sent with ciphertext
             nonce = per_share_encryptor.nonce
 
+            # 加密并校验数据的完整性
             tmp, _ = per_share_encryptor.encrypt_and_digest(per_share_bytes)
             enc_mi_shares.append((tmp, nonce))
             cnt += 1
 
         # Compute mask, compute masked vector
+        # 计算掩码，计算掩码向量
         # PRG individual mask
         prg_mi_holder = ChaCha20.new(key=mi_bytes, nonce=param.nonce)
         data = param.fixed_key * self.vector_len
@@ -271,17 +283,19 @@ class SA_ClientAgent(Agent):
         for id in self.neighbors_list:
             round_number_bytes = self.current_iteration.to_bytes(16, 'big')
 
-            h_ijt = ChaCha20.new(key=neighbor_pairwise_secret_bytes[id], nonce=param.nonce).encrypt(round_number_bytes)
+            h_ijt = ChaCha20.new(key=neighbor_pairwise_secret_bytes[id],
+                                 nonce=param.nonce).encrypt(round_number_bytes)
             h_ijt = str(int.from_bytes(h_ijt[0:4], 'big') & 0xFFFF)
 
             # map h_ijt to a group element
             dst = ecchash.test_dst("P256_XMD:SHA-256_SSWU_RO_")
-            neighbor_pairwise_mask_seed_group[id] = ecchash.hash_str_to_curve(msg=h_ijt, count=2,
-                                                                              modulus=self.prime, degree=ecchash.m,
-                                                                              blen=ecchash.L,
-                                                                              expander=ecchash.XMDExpander(dst,
-                                                                                                           hashlib.sha256,
-                                                                                                           ecchash.k))
+            neighbor_pairwise_mask_seed_group[id] = ecchash \
+                .hash_str_to_curve(msg=h_ijt,
+                                   count=2,
+                                   modulus=self.prime,
+                                   degree=ecchash.m,
+                                   blen=ecchash.L,
+                                   expander=ecchash.XMDExpander(dst, hashlib.sha256, ecchash.k))
 
             px = (int(neighbor_pairwise_mask_seed_group[id].x)).to_bytes(self.key_length, 'big')
             py = (int(neighbor_pairwise_mask_seed_group[id].y)).to_bytes(self.key_length, 'big')
@@ -340,8 +354,7 @@ class SA_ClientAgent(Agent):
                                   "sender"       : self.id,
                                   "vector"       : vec,
                                   "enc_mi_shares": util.serialize_tuples_bytes(enc_mi_shares),
-                                  "enc_pairwise" : util.serialize_dim1_elgamal(cipher_msg),
-                                  }),
+                                  "enc_pairwise" : util.serialize_dim1_elgamal(cipher_msg)}),
                          tag="comm_key_generation")
 
     def signSendLabels(self, currentTime, msg_to_sign):

@@ -91,6 +91,7 @@ np.random.seed(seed)
 # 导致util.util.print抑制大部分输出的配置参数。
 util.silent_mode = not args.verbose
 num_clients = args.num_clients
+# 客户端的邻居数量（只应输入log（n）的乘法因子）
 neighborhood_size = args.neighborhood_size
 round_time = args.round_time
 num_iterations = args.num_iterations
