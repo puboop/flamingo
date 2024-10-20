@@ -369,6 +369,12 @@ class Kernel:
         # parallel pipeline processing delays (that should delay the transmission of messages
         # but do not make the agent "busy" and unable to respond to new messages).
 
+        # 由代理调用，向另一个代理发送消息。
+        # 内核提供自己的currentTime（即“现在”）来防止代理可能的滥用。
+        # 内核将处理计算延迟惩罚和/或网络延迟。消息必须源自消息。消息类。
+        # 可选的延迟参数表示代理对额外延迟的请求（超出内核的强制计算+延迟延迟），
+        # 以表示并行流水线处理延迟（这应该延迟消息的传输，但不会使代理“忙碌”并且无法响应新消息）。
+
         if sender is None:
             raise ValueError("sendMessage() called without valid sender ID",
                              "sender:", sender, "recipient:", recipient,

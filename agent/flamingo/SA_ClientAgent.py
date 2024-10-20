@@ -152,11 +152,12 @@ class SA_ClientAgent(Agent):
         super().receiveMessage(currentTime, msg)
 
         # with signatures of other clients from the server
-        if msg.body['msg'] == "COMMITTEE_SHARED_SK":
+        # 具有来自服务器的其他客户端的签名
+        if msg.body['msg'] == "COMMITTEE_SHARED_SK": # 委员会共享SK
             self.committee_shared_sk = msg.body['sk_share']
             self.committee_member_idx = msg.body['committee_member_idx']
 
-        elif msg.body['msg'] == "SIGN":
+        elif msg.body['msg'] == "SIGN":# 签名
             if msg.body['iteration'] == self.current_iteration:
                 dt_protocol_start = pd.Timestamp('now')
                 self.cipher_stored = msg
@@ -398,10 +399,10 @@ class SA_ClientAgent(Agent):
 
             # CHECK SIGNATURES
 
-        """Compute decryption of pairwise secrets.
-            dec_target is a matrix
-            just need to mult sk with each of the entry
-            needs elliptic curve ops
+        """Compute decryption of pairwise secrets. 计算成对秘密的解密。
+            dec_target is a matrix dec_target是一个矩阵
+            just need to mult sk with each of the entry 只需在每个条目中添加多个sk
+            needs elliptic curve ops需要椭圆曲线运算
         """
         dec_shares_pairwise = []
         dec_target_list_pairwise = list(dec_target_pairwise.values())
@@ -410,9 +411,9 @@ class SA_ClientAgent(Agent):
             c0 = dec_target_list_pairwise[i][0]
             dec_shares_pairwise.append(self.committee_shared_sk[1] * c0)
 
-        """Compute decryption for mi shares.
-            dec_target_mi is a list of AES ciphertext (with nonce)
-            decrypt each entry of dec_target_mi
+        """Compute decryption for mi shares. 计算mi共享的解密。
+            dec_target_mi is a list of AES ciphertext (with nonce) dec_target_mi是AES密文（带随机数）的列表
+            decrypt each entry of dec_target_mi 解密dec_target_mi的每个条目
         """
         dec_shares_mi = []
         cnt = 0
