@@ -62,13 +62,21 @@ class SA_ServiceAgent(Agent):
             logging.basicConfig()
 
         # System parameters.
+        # 系统参数。
+        # 转发对等客户端中继消息的时间
         self.msg_fwd_delay = msg_fwd_delay  # time to forward a peer-to-peer client relay message
+        # 每轮默认等待时间
         self.round_time = round_time  # default waiting time per round
-        self.no_of_iterations = iterations  # number of iterations 
+        # 迭代次数
+        self.no_of_iterations = iterations  # number of iterations
+        # parallel
         self.parallel_mode = parallel_mode  # parallel
 
         # Input parameters.
+        # 输入参数。
+        # 每轮培训的用户数
         self.num_clients = num_clients  # number of users per training round
+        # 用户ID列表
         self.users = users  # the list of user IDs
         self.vector_len = param.vector_len
         self.vector_dtype = param.vector_type
@@ -76,16 +84,19 @@ class SA_ServiceAgent(Agent):
         self.final_sum = np.zeros(self.vector_len, dtype=self.vector_dtype)
 
         # Security parameeters.
+        # 安全参数。
         self.prime = ecchash.n
         self.key_length = key_length
         self.neighborhood_size = neighborhood_size
         self.committee_threshold = 0
 
         # Read keys.
+        # 读取密钥。
         self.server_key = util.read_key("pki_files/server_key.pem")
         self.system_sk = util.read_sk("pki_files/system_pk.pem")
 
         # agent accumulation of elapsed times by category of tasks
+        # 按任务类别计算的代理运行时间累积
         self.elapsed_time = {'REPORT'        : pd.Timedelta(0),
                              'CROSSCHECK'    : pd.Timedelta(0),
                              'RECONSTRUCTION': pd.Timedelta(0),
@@ -115,9 +126,11 @@ class SA_ServiceAgent(Agent):
         self.dec_target_mi = {}
 
         # Track the current iteration and round of the protocol.
+        # 跟踪协议的当前迭代和轮次。
         self.current_iteration = 1
         self.current_round = 0
 
+        # 映射消息处理功能
         # Map the message processing functions
         self.aggProcessingMap = {
             0: self.initialize,
@@ -134,18 +147,22 @@ class SA_ServiceAgent(Agent):
         }
 
     # Simulation lifecycle messages.
+    # 仿真生命周期消息。
     def kernelStarting(self, startTime):
         # self.kernel is set in Agent.kernelInitializing()
 
         # Initialize custom state properties into which we will accumulate results later.
+        # 初始化自定义状态属性，稍后我们将在其中累积结果。
         self.kernel.custom_state['srv_report'] = pd.Timedelta(0)
         self.kernel.custom_state['srv_crosscheck'] = pd.Timedelta(0)
         self.kernel.custom_state['srv_reconstruction'] = pd.Timedelta(0)
 
         # This agent should have negligible (or no) computation delay until otherwise specified.
+        # 除非另有规定，否则此代理的计算延迟应可忽略不计（或没有）。
         self.setComputationDelay(0)
 
         # Request a wake-up call as in the base Agent.
+        # 请求唤醒电话，就像在基本代理中一样。
         super().kernelStarting(startTime)
 
     def kernelStopping(self):
@@ -181,6 +198,7 @@ class SA_ServiceAgent(Agent):
             f"wakeup in iteration {self.current_iteration} at function {self.namedict[self.current_round]}; current time is {currentTime}")
 
         # In the k-th iteration
+        # 在第k次迭代中
         self.aggProcessingMap[self.current_round](currentTime)
 
     def receiveMessage(self, currentTime, msg):
@@ -193,27 +211,34 @@ class SA_ServiceAgent(Agent):
         """
 
         # Allow the base Agent to do whatever it needs to.
+        # 允许基础代理做任何它需要做的事情。
         super().receiveMessage(currentTime, msg)
 
         # Get the sender's id (should be client id)
+        # 获取发件人的id（应该是客户端id）
         sender_id = msg.body['sender']
         if __debug__: self.logger.info(f"received vector from client {sender_id} at {currentTime}")
 
         # Collect masked vectors from clients
+        # 从客户端收集掩码向量
         if msg.body['msg'] == "VECTOR":
 
             if msg.body['iteration'] == self.current_iteration:
 
                 # Store the vectors
+                # 存储矢量
                 self.recv_user_vectors[sender_id] = msg.body['vector']
 
                 # parse cipher for shares of mi
+                # mi共享的解析密码
                 self.recv_mi_cipher[sender_id] = util.deserialize_tuples_bytes(msg.body['enc_mi_shares'])
 
-                # parse the cipher for pairwise mask 
+                # parse the cipher for pairwise mask
+                # 解析成对掩码的密码
                 cur_clt_pairwise_cipher = util.deserialize_dim1_elgamal(msg.body['enc_pairwise'])
 
                 # update pairwise cipher
+                # 更新成对密码
                 for d in (self.recv_pairwise_cipher, cur_clt_pairwise_cipher):
                     self.recv_pairwise_cipher.update(d)
 
@@ -223,9 +248,11 @@ class SA_ServiceAgent(Agent):
                         f"LATE MSG: Server receives VECTORS from iteration {msg.body['iteration']} client {msg.body['sender']}")
 
         # Collect signed labels from decryptors
+        # 从解密器收集签名标签
         elif msg.body['msg'] == "SIGN":
 
             if msg.body['iteration'] == self.current_iteration:
+                # 将签名转发给所有解密器
                 # forward the signatures to all decryptors
                 self.recv_committee_sigs[sender_id] = msg.body['signed_labels']
 
@@ -234,6 +261,7 @@ class SA_ServiceAgent(Agent):
                     f"LATE MSG: Server receives signed labels from iteration {msg.body['iteration']} client {msg.body['sender']}")
 
         # Collect partial decryption results from decryptors
+        # 从解密器收集部分解密结果
         elif msg.body['msg'] == "SHARED_RESULT":
 
             if msg.body['iteration'] == self.current_iteration:
@@ -250,6 +278,7 @@ class SA_ServiceAgent(Agent):
                         f"LATE MSG: Server receives SHARED_RESULT from iteration {msg.body['iteration']} client {msg.body['sender']}")
 
     # Processing and replying the messages.
+    # 处理和回复消息。
     def initialize(self, currentTime):
         dt_protocol_start = pd.Timestamp('now')
 

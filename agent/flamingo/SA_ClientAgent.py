@@ -109,12 +109,15 @@ class SA_ClientAgent(Agent):
 
         # Initialize custom state properties into which we will later accumulate results.
         # To avoid redundancy, we allow only the first client to handle initialization.
+
+        # 初始化自定义状态属性，稍后我们将在其中累积结果。为了避免冗余，我们只允许第一个客户端处理初始化。
         if self.id == 0:
             self.kernel.custom_state['clt_report'] = pd.Timedelta(0)
             self.kernel.custom_state['clt_crosscheck'] = pd.Timedelta(0)
             self.kernel.custom_state['clt_reconstruction'] = pd.Timedelta(0)
 
         # Find the PPFL service agent, so messages can be directed there.
+        # 找到PPFL服务代理，以便将消息定向到那里。
         self.serviceAgentID = self.kernel.findAgentByType(ServiceAgent)
 
         self.setComputationDelay(0)
