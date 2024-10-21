@@ -30,9 +30,10 @@ def calculate_mersenne_primes():
         primes.append(prime)
     return primes
 
-SMALLEST_257BIT_PRIME = (2**256 + 297)
-SMALLEST_321BIT_PRIME = (2**320 + 27)
-SMALLEST_385BIT_PRIME = (2**384 + 231)
+
+SMALLEST_257BIT_PRIME = (2 ** 256 + 297)
+SMALLEST_321BIT_PRIME = (2 ** 320 + 27)
+SMALLEST_385BIT_PRIME = (2 ** 384 + 231)
 STANDARD_PRIMES = calculate_mersenne_primes() + [
     SMALLEST_257BIT_PRIME, SMALLEST_321BIT_PRIME, SMALLEST_385BIT_PRIME
 ]
@@ -50,4 +51,3 @@ def get_large_enough_prime(batch):
         if len(numbers_greater_than_prime) == 0:
             return prime
     return None
-

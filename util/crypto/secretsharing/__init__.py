@@ -14,4 +14,3 @@ from .sharing import secret_int_to_points, points_to_secret_int, \
     HexToHexSecretSharer, PlaintextToHexSecretSharer, \
     BitcoinToB58SecretSharer, BitcoinToB32SecretSharer, \
     BitcoinToZB32SecretSharer
-

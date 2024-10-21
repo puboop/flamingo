@@ -56,9 +56,9 @@ parser.add_argument('-y', '--multiplier', type=int, default=16,
                     help='Multiplier 2^y for encoding')
 parser.add_argument('-v', '--verbose', action='store_true',
                     help='Maximum verbosity!')
-parser.add_argument('-p', '--parallel_mode', type=bool, default=True, 
+parser.add_argument('-p', '--parallel_mode', type=bool, default=True,
                     help='turn on parallel mode at server side')
-parser.add_argument('-d', '--debug_mode', type=bool, default=False, 
+parser.add_argument('-d', '--debug_mode', type=bool, default=False,
                     help='print debug info')
 parser.add_argument('--config_help', action='store_true',
                     help='Print argument options for this config file')
@@ -66,8 +66,8 @@ parser.add_argument('--config_help', action='store_true',
 args, remaining_args = parser.parse_known_args()
 
 if args.config_help:
-  parser.print_help()
-  exit()
+    parser.print_help()
+    exit()
 
 # Historical date to simulate.  Required even if not relevant.
 historical_date = pd.to_datetime('2023-01-01')
@@ -90,7 +90,7 @@ skip_log = args.skip_log
 # before)
 
 seed = args.seed
-if not seed: seed = int(pd.Timestamp.now().timestamp() * 1000000) % (2**32 - 1)
+if not seed: seed = int(pd.Timestamp.now().timestamp() * 1000000) % (2 ** 32 - 1)
 np.random.seed(seed)
 
 dataset = args.dataset
@@ -105,7 +105,7 @@ parallel_mode = args.parallel_mode
 debug_mode = args.debug_mode
 
 if not param.assert_power_of_two(num_clients):
-  raise ValueError("Number of clients must be power of 2")
+    raise ValueError("Number of clients must be power of 2")
 
 # split_size = args.split_size
 # max_logreg_iterations = args.max_logreg_iterations
@@ -117,9 +117,8 @@ if not param.assert_power_of_two(num_clients):
 ### How many client agents will there be?   1000 in 125 subgraphs of 8 fits ln(n), for example
 # num_subgraphs = args.num_subgraphs
 
-print ("Silent mode: {}".format(util.silent_mode))
-print ("Configuration seed: {}\n".format(seed))
-
+print("Silent mode: {}".format(util.silent_mode))
+print("Configuration seed: {}\n".format(seed))
 
 # Since the simulator often pulls historical data, we use a real-world
 # nanosecond timestamp (pandas.Timestamp) for our discrete time "steps",
@@ -148,10 +147,11 @@ defaultComputationDelay = 1000000000 * 0.1  # five seconds
 
 
 ### Configure the Kernel.
-kernel = Kernel("Base Kernel", random_state = np.random.RandomState(seed=np.random.randint(low=0,high=2**32, dtype='uint64')))
+kernel = Kernel("Base Kernel",
+                random_state=np.random.RandomState(seed=np.random.randint(low=0, high=2 ** 32, dtype='uint64')))
 
 ### Obtain random state for whatever latency model will be used.
-latency_rstate = np.random.RandomState(seed=np.random.randint(low=0,high=2**32, dtype='uint64'))
+latency_rstate = np.random.RandomState(seed=np.random.randint(low=0, high=2 ** 32, dtype='uint64'))
 
 ### Configure the agents.  When conducting "agent of change" experiments, the
 ### new agents should be added at the END only.
@@ -164,7 +164,6 @@ accy_multiplier = 100000
 
 ### What will be the scale of the shared secret?
 secret_scale = 1000000
-
 
 ### FOR MACHINE LEARNING APPLICATIONS: LOAD DATA HERE
 #
@@ -180,7 +179,7 @@ secret_scale = 1000000
 #   the data into the structures expected by the PPFL clients.  For example:
 #   X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, test_size=0.25, random_state = shuffle_seed)
 #
-X_input,y_input = fetch_data(dataset, return_X_y=True)
+X_input, y_input = fetch_data(dataset, return_X_y=True)
 scaler = StandardScaler()
 scaler.fit(X_input)
 X_input = scaler.transform(X_input)
@@ -192,17 +191,17 @@ else:
 
 print("input length: ", input_length)
 
-X_train, X_test, y_train, y_test = train_test_split(X_input, y_input,\
-                                                    test_size=0.25,\
-                                                    random_state = seed)
+X_train, X_test, y_train, y_test = train_test_split(X_input, y_input, \
+                                                    test_size=0.25, \
+                                                    random_state=seed)
 
-nk = floor(X_train.shape[0]/num_clients)
+nk = floor(X_train.shape[0] / num_clients)
 n = X_train.shape[0]
 
 # correct shape parameter help
-X_test, X_help, y_test, y_help = train_test_split(X_test, y_test,\
-                                                  test_size=0.1, random_state\
-                                                  = seed)
+X_test, X_help, y_test, y_help = train_test_split(X_test, y_test, \
+                                                  test_size=0.1, random_state \
+                                                      =seed)
 
 # Randomly shuffle and split the data for training and testing.
 # X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, test_size=0.25)
@@ -215,118 +214,109 @@ X_test, X_help, y_test, y_help = train_test_split(X_test, y_test,\
 agent_types.extend(["ServiceAgent"])
 agent_count += 1
 
-
 ### Configure a population of cooperating learning client agents.
 a, b = agent_count, agent_count + num_clients
 
-
 ### Configure a service agent.
-agents.extend([ ServiceAgent(
-                id = 0, name = "PPFL Service Agent 0",
-                type = "ServiceAgent",
-                random_state = np.random.RandomState(seed=np.random.randint(low=0,high=2**32, dtype='uint64')),
-                msg_fwd_delay=0,
-                users = [*range(a, b)],
-                iterations = num_iterations,
-                round_time = pd.Timedelta(f"{round_time}s"),
-                num_clients = num_clients,
-                neighborhood_size = neighborhood_size,
-                parallel_mode = parallel_mode,
-                debug_mode = debug_mode,
-                input_length = input_length,
-                classes = np.unique(y_train),
-                X_test = X_test,
-                y_test = y_test,
-                X_help = X_help,
-                y_help = y_help,
-                nk = nk,
-                n = n,
-                c = args.constant,
-                m = args.multiplier,
-                ) ])
-
-
+agents.extend([ServiceAgent(
+    id=0, name="PPFL Service Agent 0",
+    type="ServiceAgent",
+    random_state=np.random.RandomState(seed=np.random.randint(low=0, high=2 ** 32, dtype='uint64')),
+    msg_fwd_delay=0,
+    users=[*range(a, b)],
+    iterations=num_iterations,
+    round_time=pd.Timedelta(f"{round_time}s"),
+    num_clients=num_clients,
+    neighborhood_size=neighborhood_size,
+    parallel_mode=parallel_mode,
+    debug_mode=debug_mode,
+    input_length=input_length,
+    classes=np.unique(y_train),
+    X_test=X_test,
+    y_test=y_test,
+    X_help=X_help,
+    y_help=y_help,
+    nk=nk,
+    n=n,
+    c=args.constant,
+    m=args.multiplier,
+)])
 
 client_init_start = time()
 
 # Iterate over all client IDs.
 # Client index number starts from 1.
-for i in range (a, b):
+for i in range(a, b):
+    agents.append(ClientAgent(id=i,
+                              name="PPFL Client Agent {}".format(i),
+                              type="ClientAgent",
+                              iterations=num_iterations,
+                              num_clients=num_clients,
+                              neighborhood_size=neighborhood_size,
+                              # multiplier = accy_multiplier, X_train = X_train, y_train = y_train, X_test = X_test, y_test = y_test,
+                              # split_size = split_size, secret_scale = secret_scale,
+                              debug_mode=debug_mode,
+                              random_state=np.random.RandomState(
+                                  seed=np.random.randint(low=0, high=2 ** 32, dtype='uint64')),
+                              X_train=X_train,
+                              y_train=y_train,
+                              input_length=input_length,
+                              classes=np.unique(y_train),
+                              nk=nk,
+                              c=args.constant,
+                              m=args.multiplier,
+                              ))
 
-  agents.append(ClientAgent(id = i,
-                name = "PPFL Client Agent {}".format(i),
-                type = "ClientAgent",
-                iterations = num_iterations,
-                num_clients = num_clients,
-                neighborhood_size = neighborhood_size,
-                # multiplier = accy_multiplier, X_train = X_train, y_train = y_train, X_test = X_test, y_test = y_test,
-                # split_size = split_size, secret_scale = secret_scale,
-                debug_mode = debug_mode,
-                random_state = np.random.RandomState(seed=np.random.randint(low=0,high=2**32, dtype='uint64')),
-                X_train = X_train,
-                y_train = y_train,
-                input_length= input_length,
-                classes = np.unique(y_train),
-                nk = nk,
-                c = args.constant,
-                m = args.multiplier,
-                            ))
-
-agent_types.extend([ "ClientAgent" for i in range(a,b) ])
+agent_types.extend(["ClientAgent" for i in range(a, b)])
 agent_count += num_clients
 
 client_init_end = time()
 init_seconds = client_init_end - client_init_start
-td_init = timedelta(seconds = init_seconds)
-print (f"Client init took {td_init}")
-
+td_init = timedelta(seconds=init_seconds)
+print(f"Client init took {td_init}")
 
 ### Configure a latency model for the agents.
 
 # Get a new-style cubic LatencyModel from the networking literature.
-pairwise = (len(agent_types),len(agent_types))
+pairwise = (len(agent_types), len(agent_types))
 
-model_args = { 'connected'   : True,
+model_args = {'connected'  : True,
 
-               # All in NYC.
-               # Only matters for evaluating "real world" protocol duration,
-               # not for accuracy, collusion, or reconstruction.
-               'min_latency' : np.random.uniform(low = 10000000, high = 100000000, size = pairwise),
-               'jitter'      : 0.3,
-               'jitter_clip' : 0.05,
-               'jitter_unit' : 5,
-             }
+              # All in NYC.
+              # Only matters for evaluating "real world" protocol duration,
+              # not for accuracy, collusion, or reconstruction.
+              'min_latency': np.random.uniform(low=10000000, high=100000000, size=pairwise),
+              'jitter'     : 0.3,
+              'jitter_clip': 0.05,
+              'jitter_unit': 5,
+              }
 
-latency_model = LatencyModel ( latency_model = 'cubic',
-                              random_state = latency_rstate,
-                              kwargs = model_args )
-
+latency_model = LatencyModel(latency_model='cubic',
+                             random_state=latency_rstate,
+                             kwargs=model_args)
 
 # Start the kernel running.
-results = kernel.runner(agents = agents,
-                        startTime = kernelStartTime,
-                        stopTime = kernelStopTime,
-                        agentLatencyModel = latency_model,
-                        defaultComputationDelay = defaultComputationDelay,
-                        skip_log = skip_log,
-                        log_dir = log_dir)
-
-
+results = kernel.runner(agents=agents,
+                        startTime=kernelStartTime,
+                        stopTime=kernelStopTime,
+                        agentLatencyModel=latency_model,
+                        defaultComputationDelay=defaultComputationDelay,
+                        skip_log=skip_log,
+                        log_dir=log_dir)
 
 # Print parameter summary and elapsed times by category for this experimental trial.
-print ()
-print (f"######## Microbenchmarks ########")
-print (f"Protocol Iterations: {num_iterations}, Clients: {num_clients}, ")
+print()
+print(f"######## Microbenchmarks ########")
+print(f"Protocol Iterations: {num_iterations}, Clients: {num_clients}, ")
 
-print ()
-print ("Service Agent mean time per iteration (except setup)...")
-print (f"    Report step:         {results['srv_report']}")
-print (f"    Crosscheck step:     {results['srv_crosscheck']}")
-print (f"    Reconstruction step: {results['srv_reconstruction']}")
-print ()
-print ("Client Agent mean time per iteration (except setup)...")
-print (f"    Report step:         {results['clt_report'] / num_clients}")
-print (f"    Crosscheck step:     {results['clt_crosscheck'] / param.committee_size}")
-print (f"    Reconstruction step: {results['clt_reconstruction'] / param.committee_size}")
-print ()
-
+print()
+print("Service Agent mean time per iteration (except setup)...")
+print(f"    Report step:         {results['srv_report']}")
+print(f"    Crosscheck step:     {results['srv_crosscheck']}")
+print(f"    Reconstruction step: {results['srv_reconstruction']}")
+print()
+print("Client Agent mean time per iteration (except setup)...")
+print(f"    Report step:         {results['clt_report'] / num_clients}")
+print(f"    Crosscheck step:     {results['clt_crosscheck'] / param.committee_size}")
+print(f"    Reconstruction step: {results['clt_reconstruction'] / param.committee_size}")
+print()

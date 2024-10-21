@@ -4,7 +4,6 @@ from contextlib import contextmanager
 import warnings
 from scipy.spatial.distance import pdist, squareform
 
-
 # General purpose utility functions for the simulator, attached to no particular class.
 # Available to any agent or other module/utility.  Should not require references to
 # any simulator object (kernel, agent, etc).
@@ -18,24 +17,26 @@ silent_mode = False
 # Use it for all permanent logging print statements to allow fastest possible
 # execution when verbose flag is not set.  This is especially fast because
 # the arguments will not even be formatted when in silent mode.
-def log_print (str, *args):
-  if not silent_mode: print (str.format(*args))
+def log_print(str, *args):
+    if not silent_mode: print(str.format(*args))
 
 
 # Accessor method for the global silent_mode variable.
-def be_silent ():
-  return silent_mode
+def be_silent():
+    return silent_mode
 
 
 # Utility method to flatten nested lists.
 def delist(list_of_lists):
     return [x for b in list_of_lists for x in b]
 
+
 # Utility function to get agent wake up times to follow a U-quadratic distribution.
 def get_wake_time(open_time, close_time, a=0, b=1):
     """ Draw a time U-quadratically distributed between open_time and close_time.
         For details on U-quadtratic distribution see https://en.wikipedia.org/wiki/U-quadratic_distribution
     """
+
     def cubic_pow(n):
         """ Helper function: returns *real* cube root of a float"""
         if n < 0:
@@ -47,7 +48,7 @@ def get_wake_time(open_time, close_time, a=0, b=1):
     def u_quadratic_inverse_cdf(y):
         alpha = 12 / ((b - a) ** 3)
         beta = (b + a) / 2
-        result = cubic_pow((3 / alpha) * y - (beta - a)**3 ) + beta
+        result = cubic_pow((3 / alpha) * y - (beta - a) ** 3) + beta
         return result
 
     uniform_0_1 = np.random.rand()
@@ -55,6 +56,7 @@ def get_wake_time(open_time, close_time, a=0, b=1):
     wake_time = open_time + random_multiplier * (close_time - open_time)
 
     return wake_time
+
 
 def numeric(s):
     """ Returns numeric type from string, stripping commas from the right.
@@ -67,6 +69,7 @@ def numeric(s):
             return float(s)
         except ValueError:
             return s
+
 
 def get_value_from_timestamp(s, ts):
     """ Get the value of s corresponding to closest datetime to ts.
@@ -84,6 +87,7 @@ def get_value_from_timestamp(s, ts):
     out = s[locs][0] if (isinstance(s[locs], np.ndarray) or isinstance(s[locs], pd.Series)) else s[locs]
 
     return out
+
 
 @contextmanager
 def ignored(warning_str, *exceptions):
@@ -148,10 +152,10 @@ def sigmoid(x, beta):
     Adapted from https://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick/"
     """
     if x >= 0:
-        z = np.exp(-beta*x)
+        z = np.exp(-beta * x)
         return 1 / (1 + z)
     else:
         # if x is less than zero then z will be small, denom can't be
         # zero because it's 1+z.
-        z = np.exp(beta*x)
+        z = np.exp(beta * x)
         return z / (1 + z)
