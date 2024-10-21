@@ -64,7 +64,6 @@ class SA_ClientAgent(Agent):
 
         """Set parameters."""
         self.num_clients = num_clients
-        # 邻域大小
         self.neighborhood_size = neighborhood_size
         self.vector_len = param.vector_len
         self.vector_dtype = param.vector_type
@@ -82,7 +81,6 @@ class SA_ClientAgent(Agent):
 
         # If it is in the committee:
         # read pubkeys of every other client and precompute pairwise keys
-        # 读取其他所有客户端的pubkeys并预计算成对密钥
         self.symmetric_keys = {}
         if self.id in self.user_committee:
             for i in range(num_clients):
@@ -109,15 +107,12 @@ class SA_ClientAgent(Agent):
 
         # Initialize custom state properties into which we will later accumulate results.
         # To avoid redundancy, we allow only the first client to handle initialization.
-
-        # 初始化自定义状态属性，稍后我们将在其中累积结果。为了避免冗余，我们只允许第一个客户端处理初始化。
         if self.id == 0:
             self.kernel.custom_state['clt_report'] = pd.Timedelta(0)
             self.kernel.custom_state['clt_crosscheck'] = pd.Timedelta(0)
             self.kernel.custom_state['clt_reconstruction'] = pd.Timedelta(0)
 
         # Find the PPFL service agent, so messages can be directed there.
-        # 找到PPFL服务代理，以便将消息定向到那里。
         self.serviceAgentID = self.kernel.findAgentByType(ServiceAgent)
 
         self.setComputationDelay(0)
@@ -152,12 +147,11 @@ class SA_ClientAgent(Agent):
         super().receiveMessage(currentTime, msg)
 
         # with signatures of other clients from the server
-        # 具有来自服务器的其他客户端的签名
-        if msg.body['msg'] == "COMMITTEE_SHARED_SK": # 委员会共享SK
+        if msg.body['msg'] == "COMMITTEE_SHARED_SK":
             self.committee_shared_sk = msg.body['sk_share']
             self.committee_member_idx = msg.body['committee_member_idx']
 
-        elif msg.body['msg'] == "SIGN":# 签名
+        elif msg.body['msg'] == "SIGN":
             if msg.body['iteration'] == self.current_iteration:
                 dt_protocol_start = pd.Timestamp('now')
                 self.cipher_stored = msg
@@ -203,20 +197,14 @@ class SA_ClientAgent(Agent):
         dt_protocol_start = pd.Timestamp('now')
 
         # Find this client's neighbors: parse graph from PRG(PRF(iter, root_seed))
-        # 查找此客户端的邻居：从PRG解析图（PRF（iter，root_seed））
-        self.neighbors_list = param.findNeighbors(param.root_seed,
-                                                  self.current_iteration,
-                                                  self.num_clients,
-                                                  self.id,
+        self.neighbors_list = param.findNeighbors(param.root_seed, self.current_iteration, self.num_clients, self.id,
                                                   self.neighborhood_size)
         if __debug__:
             self.logger.info("client indices in neighbors list starts from 0")
             self.logger.info(f"client {self.id} neighbors list: {self.neighbors_list}")
 
         # Download public keys of neighbors from PKI file
-        # 从PKI文件下载邻居的公钥
         # Client index starting frrom 0
-        # 客户端索引从0开始
         neighbor_pubkeys = {}
         for id in self.neighbors_list:
             neighbor_pubkeys[id] = util.read_pk(f"pki_files/client{id}.pem")
@@ -227,15 +215,13 @@ class SA_ClientAgent(Agent):
 
         mi_shares = secret_int_to_points(secret_int=mi_number,
                                          point_threshold=int(param.fraction * len(self.user_committee)),
-                                         num_points=len(self.user_committee),
-                                         prime=self.prime)
+                                         num_points=len(self.user_committee), prime=self.prime)
 
         committee_pubkeys = {}
         for id in self.user_committee:
             committee_pubkeys[id] = util.read_pk(f"pki_files/client{id}.pem")
 
         # separately encrypt each share
-        # 分别加密每个共享
         enc_mi_shares = []
         # id is the x-axis
         cnt = 0
@@ -250,13 +236,11 @@ class SA_ClientAgent(Agent):
             # nouce should be sent with ciphertext
             nonce = per_share_encryptor.nonce
 
-            # 加密并校验数据的完整性
             tmp, _ = per_share_encryptor.encrypt_and_digest(per_share_bytes)
             enc_mi_shares.append((tmp, nonce))
             cnt += 1
 
         # Compute mask, compute masked vector
-        # 计算掩码，计算掩码向量
         # PRG individual mask
         prg_mi_holder = ChaCha20.new(key=mi_bytes, nonce=param.nonce)
         data = param.fixed_key * self.vector_len
@@ -287,19 +271,17 @@ class SA_ClientAgent(Agent):
         for id in self.neighbors_list:
             round_number_bytes = self.current_iteration.to_bytes(16, 'big')
 
-            h_ijt = ChaCha20.new(key=neighbor_pairwise_secret_bytes[id],
-                                 nonce=param.nonce).encrypt(round_number_bytes)
+            h_ijt = ChaCha20.new(key=neighbor_pairwise_secret_bytes[id], nonce=param.nonce).encrypt(round_number_bytes)
             h_ijt = str(int.from_bytes(h_ijt[0:4], 'big') & 0xFFFF)
 
             # map h_ijt to a group element
             dst = ecchash.test_dst("P256_XMD:SHA-256_SSWU_RO_")
-            neighbor_pairwise_mask_seed_group[id] = ecchash \
-                .hash_str_to_curve(msg=h_ijt,
-                                   count=2,
-                                   modulus=self.prime,
-                                   degree=ecchash.m,
-                                   blen=ecchash.L,
-                                   expander=ecchash.XMDExpander(dst, hashlib.sha256, ecchash.k))
+            neighbor_pairwise_mask_seed_group[id] = ecchash.hash_str_to_curve(msg=h_ijt, count=2,
+                                                                              modulus=self.prime, degree=ecchash.m,
+                                                                              blen=ecchash.L,
+                                                                              expander=ecchash.XMDExpander(dst,
+                                                                                                           hashlib.sha256,
+                                                                                                           ecchash.k))
 
             px = (int(neighbor_pairwise_mask_seed_group[id].x)).to_bytes(self.key_length, 'big')
             py = (int(neighbor_pairwise_mask_seed_group[id].y)).to_bytes(self.key_length, 'big')
@@ -358,7 +340,8 @@ class SA_ClientAgent(Agent):
                                   "sender"       : self.id,
                                   "vector"       : vec,
                                   "enc_mi_shares": util.serialize_tuples_bytes(enc_mi_shares),
-                                  "enc_pairwise" : util.serialize_dim1_elgamal(cipher_msg)}),
+                                  "enc_pairwise" : util.serialize_dim1_elgamal(cipher_msg),
+                                  }),
                          tag="comm_key_generation")
 
     def signSendLabels(self, currentTime, msg_to_sign):
@@ -399,10 +382,10 @@ class SA_ClientAgent(Agent):
 
             # CHECK SIGNATURES
 
-        """Compute decryption of pairwise secrets. 计算成对秘密的解密。
-            dec_target is a matrix dec_target是一个矩阵
-            just need to mult sk with each of the entry 只需在每个条目中添加多个sk
-            needs elliptic curve ops需要椭圆曲线运算
+        """Compute decryption of pairwise secrets.
+            dec_target is a matrix
+            just need to mult sk with each of the entry
+            needs elliptic curve ops
         """
         dec_shares_pairwise = []
         dec_target_list_pairwise = list(dec_target_pairwise.values())
@@ -411,9 +394,9 @@ class SA_ClientAgent(Agent):
             c0 = dec_target_list_pairwise[i][0]
             dec_shares_pairwise.append(self.committee_shared_sk[1] * c0)
 
-        """Compute decryption for mi shares. 计算mi共享的解密。
-            dec_target_mi is a list of AES ciphertext (with nonce) dec_target_mi是AES密文（带随机数）的列表
-            decrypt each entry of dec_target_mi 解密dec_target_mi的每个条目
+        """Compute decryption for mi shares.
+            dec_target_mi is a list of AES ciphertext (with nonce)
+            decrypt each entry of dec_target_mi
         """
         dec_shares_mi = []
         cnt = 0
