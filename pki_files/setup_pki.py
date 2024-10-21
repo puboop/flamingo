@@ -19,3 +19,11 @@ for i in range(512):
     f = open(hdr, 'wt')
     f.write(key.export_key(format='PEM'))
     f.close()
+
+# generate manager keys
+for i in range(10):
+    key = ECC.generate(curve='P-256')
+    hdr = 'manager' + str(i) + '.pem'
+    f = open(hdr, 'wt')
+    f.write(key.export_key(format='PEM'))
+    f.close()

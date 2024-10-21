@@ -314,7 +314,11 @@ class Kernel:
                     continue
                 msg_type, msg = get_data
                 if msg_type == MessageType.PROVE:
-                    msg.client_obj.prove_count()
+                    msg.client_obj.send_dh_public_key()
+                elif msg_type == MessageType.CLIENT_SWITCH_PUBLIC:
+                    self.agents[msg.manage_id].send_dh_public_key(msg.id, msg.dh_public_key)
+                elif msg_type == MessageType.MANAGE_SWITCH_PUBLIC:
+                    self.agents[msg.client_id].send_dh_public_key(msg.id, msg.dh_public_key)
 
             ###################################################
 
@@ -556,6 +560,13 @@ class Kernel:
         for agent in self.agents:
             if isinstance(agent, type):
                 return agent.id
+
+    def findAgentsByType(self, type):
+        agents = list()
+        for agent in self.agents:
+            if isinstance(agent, type):
+                agents.append(agent)
+        return agents
 
     def writeLog(self, sender, dfLog, filename=None):
         # Called by any agent, usually at the very end of the simulation just before

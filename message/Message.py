@@ -5,7 +5,9 @@ from enum import Enum, unique
 class MessageType(Enum):
     MESSAGE = 1
     WAKEUP = 2
-    PROVE = 3 # 服务器发起请求证明
+    PROVE = 3  # 服务器发起请求证明
+    CLIENT_SWITCH_PUBLIC = 4  # 客户端交换公钥
+    MANAGE_SWITCH_PUBLIC = 5  # 管理者交换公钥
 
     def __lt__(self, other):
         return self.value < other.value

@@ -1,6 +1,8 @@
 from agent.Agent import Agent
 from agent.flamingo.SA_ServiceAgent import SA_ServiceAgent as ServiceAgent
-from message.Message import Message
+from agent.flamingo.SA_Manage import SA_Manage as Manage
+from message.Message import Message, MessageType
+from message.new_msg import ReqMsg
 
 import dill
 import time
@@ -23,6 +25,7 @@ from Cryptodome.Signature import DSS
 import hashlib
 from util import param
 from util import util
+from util.DiffieHellman import DHKeyExchange, mod_args
 from util.crypto import ecchash
 from util.crypto.secretsharing import secret_int_to_points, points_to_secret_int
 
@@ -61,6 +64,10 @@ class SA_ClientAgent(Agent):
         # sk is used to establish pairwise secret with neighbors' public keys
         self.key = util.read_key(f"pki_files/client{self.id}.pem")
         self.secret_key = self.key.d
+        self.private_key = self.key.export_key(format='PEM')
+        self.public_key = self.key.public_key().export_key(format='PEM')
+
+        self.dh_key_obj = DHKeyExchange(mod_args.q, mod_args.g, self.private_key)
 
         """Set parameters."""
         self.num_clients = num_clients
@@ -103,6 +110,8 @@ class SA_ClientAgent(Agent):
 
         # State flag
         self.setup_complete = False
+
+        self.manages_dh_key = dict()
 
     # Simulation lifecycle messages.
     def kernelStarting(self, startTime):
@@ -473,5 +482,17 @@ class SA_ClientAgent(Agent):
         """
         print(*args, **kwargs)
 
-    def prove_count(self):
-        pass
+    def send_dh_public_key(self):
+        manages = self.kernel.findAgentsByType(Manage)
+        for manage in manages:
+            self.kernel.prove_queue.put((
+                MessageType.CLIENT_SWITCH_PUBLIC,
+                ReqMsg(id=self.id,
+                       dh_public_key=self.dh_key_obj.public_key,
+                       manage_id=manage.id)
+            ))
+
+    def receive_manage_public_key(self, manage_id, manage_public_key):
+        self.manages_dh_key[manage_id] = manage_public_key
+        shared_key = self.dh_key_obj.compute_shared_secret(self.private_key, manage_public_key, mod_args.q)
+        self.dh_key_obj.shared_key = shared_key
