@@ -153,11 +153,11 @@ class SA_ClientAgent(Agent):
 
         # with signatures of other clients from the server
         # 具有来自服务器的其他客户端的签名
-        if msg.body['msg'] == "COMMITTEE_SHARED_SK": # 委员会共享SK
+        if msg.body['msg'] == "COMMITTEE_SHARED_SK":  # 委员会共享SK
             self.committee_shared_sk = msg.body['sk_share']
             self.committee_member_idx = msg.body['committee_member_idx']
 
-        elif msg.body['msg'] == "SIGN":# 签名
+        elif msg.body['msg'] == "SIGN":  # 签名
             if msg.body['iteration'] == self.current_iteration:
                 dt_protocol_start = pd.Timestamp('now')
                 self.cipher_stored = msg
@@ -472,3 +472,6 @@ class SA_ClientAgent(Agent):
             **kwargs: Any keyword arguments that the built-in print function accepts.
         """
         print(*args, **kwargs)
+
+    def prove_count(self):
+        pass

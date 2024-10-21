@@ -1,5 +1,6 @@
 from agent.Agent import Agent
 from message.Message import Message
+from message.Message import MessageType
 
 import multiprocessing
 import dill
@@ -23,7 +24,7 @@ from util import util
 from util.crypto import ecchash
 from util.crypto.secretsharing import secret_int_to_points, points_to_secret_int
 
-
+from message.new_msg import  ReqMsg
 def parallel_mult(vec, coeff):
     """Scalar multiplication for EC points in parallel."""
     points = vec.apply(lambda row: ECC.EccPoint(row[0], row[1]), axis=1)
@@ -662,3 +663,13 @@ class SA_ServiceAgent(Agent):
             **kwargs: Any keyword arguments that the built-in print function accepts.
         """
         print(*args, **kwargs)
+
+    def send_request_prove(self):
+        for client in self.kernel.agents:
+            if client.id == self.id:
+                continue
+            self.kernel.prove_queue.put((
+                MessageType.PROVE,
+                ReqMsg(client_id=client.id,
+                       client_obj=client)
+            ))

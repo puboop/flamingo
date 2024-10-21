@@ -1,10 +1,12 @@
 import numpy as np
 import pandas as pd
-
+import time
 import os, queue, sys
 from message.Message import MessageType
 
 from util.util import log_print
+
+from agent.flamingo.SA_ServiceAgent import SA_ServiceAgent as Service
 
 
 class Kernel:
@@ -22,6 +24,8 @@ class Kernel:
         # A single message queue to keep everything organized by increasing
         # delivery timestamp.
         self.messages = queue.PriorityQueue()
+
+        self.prove_queue = queue.Queue()
 
         # currentTime is None until after kernelStarting() event completes
         # for all agents.  This is a pd.Timestamp that includes the date.
@@ -297,6 +301,22 @@ class Kernel:
                     raise ValueError("Unknown message type found in queue",
                                      "currentTime:", self.currentTime,
                                      "messageType:", self.msg.type)
+
+            #############服务器请求证明消息发送####################
+            service_id = self.findAgentByType(Service)
+            self.agents[service_id].send_request_prove()
+            req_prove_handle = False
+            while not req_prove_handle:
+                try:
+                    get_data = self.prove_queue.get_nowait()
+                except:
+                    time.sleep(1)
+                    continue
+                msg_type, msg = get_data
+                if msg_type == MessageType.PROVE:
+                    msg.client_obj.prove_count()
+
+            ###################################################
 
             if self.messages.empty():
                 log_print("\n--- Kernel Event Queue empty ---")
