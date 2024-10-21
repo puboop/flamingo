@@ -290,18 +290,42 @@ class SA_ClientAgent(Agent):
         # print("CURRENT ITERATION")
         # print(self.current_iteration)
         if self.current_iteration > 1:
+            """
+            MLP（多层感知机，Multi-Layer Perceptron）是一种经典的前馈神经网络，具有多层结构，并广泛用于分类和回归任务。它的主要优势包括：
+            1. **处理复杂非线性关系**：由于 MLP 具有隐藏层和非线性激活函数，它能够捕捉复杂的非线性关系，适用于那些无法用线性模型解决的问题。
+            2. **自动特征提取**：MLP 可以自动从输入数据中提取特征，特别是在数据维度较高或者数据特征难以手动提取的情况下，MLP 能够根据数据的模式学习有效的表示。
+            3. **支持多类别分类**：通过在输出层使用 `softmax` 激活函数，MLP 可以处理多类别分类问题，而不仅限于二分类问题。
+            4. **可扩展性强**：MLP 可以通过增加隐藏层和神经元的数量来处理更复杂的数据，虽然这会增加计算复杂度，但也提高了模型的表示能力。
+            5. **灵活性高**：MLP 可以应用于不同的数据类型和任务，包括分类、回归和时间序列预测等，并且可以与其他深度学习结构结合，扩展为更复杂的神经网络架构。
+            6. **逐步改进的训练方式**：像代码中使用的 `warm_start=True`，允许模型在保存的基础上继续训练，而不是每次从头开始，这在处理大规模数据时特别有用。
+            7. **可处理连续型和离散型输入**：MLP 对数据的输入没有过多的限制，既能处理数值型数据，也能处理经过编码的离散数据，这使得它在实际应用中非常灵活。
+            总体来说，MLP 在解决需要复杂特征表示和模式识别的任务中有着显著的优势，适合各种类型的分类和回归任务。
+            """
+            # 热启动”（warm_start=True）来继续训练
             mlp = MLPClassifier(warm_start=True)
+
+            # 设置模型的权重系数（网络层之间的权重），从 self.global_coefs 进行复制。
             mlp.coefs_ = self.global_coefs.copy()
+            # 设置模型的偏置（网络层的偏置值），从 self.global_int 复制
             mlp.intercepts_ = self.global_int.copy()
 
+            # 设置训练的迭代次数。
             mlp.n_iter_ = self.global_n_iter
+            # 设置网络的层数
             mlp.n_layers_ = self.global_n_layers
+            # 设置输出层的单元数量（输出的类别数）
             mlp.n_outputs_ = self.global_n_outputs
+            # 跟踪训练过程中优化的步数。
             mlp.t_ = self.global_t
+            # 设置无改进的计数器，用于早停机制。
             mlp._no_improvement_count = self.global_nic
+            # 设置当前的损失值。
             mlp.loss_ = self.global_loss
+            # 设置最优的损失值。
             mlp.best_loss_ = self.global_best_loss
+            # 保存并恢复训练过程中的损失曲线。
             mlp.loss_curve_ = self.global_loss_curve.copy()
+            # 指定输出层的激活函数为 softmax，用于多分类任务。
             mlp.out_activation_ = "softmax"
 
         # num epochs
