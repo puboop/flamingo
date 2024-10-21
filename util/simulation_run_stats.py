@@ -27,11 +27,11 @@ def get_run_statistics(lines):
     run_stats = dict()
 
     patterns = {
-        'user_time (s)'      : r'User time \(seconds\): (\d+\.\d+)',
-        'system_time (s)'    : r'System time \(seconds\): (\d+\.\d+)',
-        'cpu_max_perc_usage' : r'Percent of CPU this job got: (\d+)\%',
-        'mem_max_usage (kB)' : r'Maximum resident set size \(kbytes\): (\d+)',
-        'messages_total'     : r'Event Queue elapsed: \d+ days \d{2}:\d{2}:\d{2}\.\d{6}, messages: (\d+), messages per second: \d+\.?\d*',
+        'user_time (s)': r'User time \(seconds\): (\d+\.\d+)',
+        'system_time (s)': r'System time \(seconds\): (\d+\.\d+)',
+        'cpu_max_perc_usage': r'Percent of CPU this job got: (\d+)\%',
+        'mem_max_usage (kB)': r'Maximum resident set size \(kbytes\): (\d+)',
+        'messages_total': r'Event Queue elapsed: \d+ days \d{2}:\d{2}:\d{2}\.\d{6}, messages: (\d+), messages per second: \d+\.?\d*',
         'messages_per_second': r'Event Queue elapsed: \d+ days \d{2}:\d{2}:\d{2}\.\d{6}, messages: \d+, messages per second: (\d+\.?\d*)'
     }
 
@@ -63,9 +63,9 @@ def get_experiment_statistics(expt_path):
             run_output = f.readlines()
         run_stats = get_run_statistics(run_output)
         run_dict = {
-            'run_path'       : path,
+            'run_path': path,
             'run_param_value': param_value,
-            'run_stats'      : run_stats
+            'run_stats': run_stats
         }
         expt_stat.append(run_dict)
 
@@ -131,3 +131,5 @@ if __name__ == '__main__':
         plt.show()
         fig.savefig(f'timings-plots/{col}.png', format='png', dpi=300, transparent=False, bbox_inches='tight',
                     pad_inches=0.03)
+
+

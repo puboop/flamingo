@@ -27,7 +27,7 @@ class SA_ClientAgent(Agent):
 
     def __init__(self, id, name, type,
                  max_input=10000,
-                 key_length=256,
+                 key_length=256, 
                  num_clients=None,
                  threshold=-1,
                  num_subgraphs=None,
@@ -38,11 +38,11 @@ class SA_ClientAgent(Agent):
 
         self.base_point = ECC.EccPoint(ecchash.Gx, ecchash.Gy)
 
-        self.users = [i for i in range(1, num_clients + 1)]
-        self.threshold = int(param.fraction * len(self.users)) + 1  # degree of poly
+        self.users = [i for i in range (1, num_clients + 1)]
+        self.threshold = int(param.fraction * len(self.users))
 
         self.prime = ecchash.n
-
+ 
         self.recv_shares = {}
         self.recv_commitments = {}
 
@@ -96,14 +96,14 @@ class SA_ClientAgent(Agent):
                     complaints_towards.append(id)
 
             bench_check_commitment_ed = pd.Timestamp('now')
-            print("Party", self.id, " checking commitments takes ",
-                  bench_check_commitment_ed - bench_check_commitment_st, "seconds")
-
+            print("Party", self.id, " checking commitments takes ", 
+                bench_check_commitment_ed - bench_check_commitment_st, "seconds")
+            
             # send complaints or accepts
             self.sendMessage(0,
-                             Message({"msg"               : "accept_or_complain",
-                                      "sender"            : self.id,
-                                      "iteration"         : self.current_iteration,
+                             Message({"msg": "accept_or_complain",
+                                      "sender": self.id, 
+                                      "iteration" : self.current_iteration,
                                       "complaints_towards": complaints_towards,
                                       }),
                              tag="comm_acc_compl")
@@ -121,9 +121,9 @@ class SA_ClientAgent(Agent):
                 bcast_sij[complain_party] = self.si_shares_with_recvrs[complain_party]
 
             self.sendMessage(0,
-                             Message({"msg"      : "forward_share",
-                                      "sender"   : self.id,
-                                      "iteration": self.current_iteration,
+                             Message({"msg": "forward_share",
+                                      "sender" : self.id, 
+                                      "iteration" : self.current_iteration,
                                       "bcast_sij": bcast_sij,
                                       }),
                              tag="comm_acc_compl")
@@ -141,7 +141,7 @@ class SA_ClientAgent(Agent):
             for id in recv_bcast_shares:
                 if len(recv_bcast_shares[id]) == 0:
                     continue
-                else:
+                else: 
                     if self.verify_commitment(recv_bcast_shares[id], self.recv_commitments[id]) == False:
                         disqual.append(id)
 
@@ -149,10 +149,10 @@ class SA_ClientAgent(Agent):
 
             # sign qual
             self.sendMessage(0,
-                             Message({"msg"      : "bcast_qual",
-                                      "sender"   : self.id,
-                                      "iteration": self.current_iteration,
-                                      "qual"     : qual,
+                             Message({"msg": "bcast_qual",
+                                      "sender" : self.id, 
+                                      "iteration" : self.current_iteration,
+                                      "qual": qual,
                                       }),
                              tag="comm_qual")
 
@@ -160,7 +160,7 @@ class SA_ClientAgent(Agent):
             # agree on qual
             # receive from the server the QUAL sets in others' mind
             dt_protocol_start = pd.Timestamp('now')
-
+            
             quals_dict = msg.body['output']
 
             qual_list = list(quals_dict.values())
@@ -169,12 +169,13 @@ class SA_ClientAgent(Agent):
             self.sk_share = 0
             for id in agreed_qual:
                 self.sk_share = (self.sk_share + self.recv_shares[id][1]) % self.prime
-
+            
             print(f"Client {self.id} has sk share: {self.sk_share}")
             # End of protocol
-            return
+            return 
 
-            # ================= Round logics =================#
+
+    #================= Round logics =================#
 
     def sendShareCommitments(self):
         ##############################################################
@@ -196,18 +197,20 @@ class SA_ClientAgent(Agent):
 
         self.si_shares_with_recvrs = {}
         for id in self.users:
-            self.si_shares_with_recvrs[id] = self.si_shares[id - 1]
+            self.si_shares_with_recvrs[id] = self.si_shares[id-1]
+
 
         self.serviceAgentID = 0
         self.sendMessage(self.serviceAgentID,
-                         Message({"msg"        : "share_and_commit",
-                                  "iteration"  : self.current_iteration,
-                                  "sender"     : self.id,
-                                  "si_shares"  : self.si_shares_with_recvrs,
+                         Message({"msg": "share_and_commit",
+                                  "iteration": self.current_iteration,
+                                  "sender" : self.id,
+                                  "si_shares": self.si_shares_with_recvrs,
                                   "commitments": self.my_commitments,
                                   # "sig"    : signature,
                                   }),
                          tag="comm_key_generation")
+
 
     def generate_commitment(self, commit_msg, commit_randomness):
         commitment = commit_msg * self.base_point
@@ -218,13 +221,13 @@ class SA_ClientAgent(Agent):
         rhs = coeff_commitments_sij[0]
         for k in range(1, self.threshold + 1):
             rhs = rhs + (coeff_commitments_sij[k] * ((self.id) ** k))
-
+        
         if lhs != rhs:
             return False
-        else:
+        else: 
             return True
 
-    # ======================== UTIL ========================
+# ======================== UTIL ========================
 
     def recordTime(self, startTime, categoryName):
         dt_protocol_end = pd.Timestamp('now')

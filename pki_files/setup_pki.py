@@ -13,9 +13,10 @@ f.write(key.export_key(format='PEM'))
 f.close()
 
 # generate client keys
-for i in range(512):
-    key = ECC.generate(curve='P-256')
-    hdr = 'client' + str(i) + '.pem'
-    f = open(hdr, 'wt')
-    f.write(key.export_key(format='PEM'))
-    f.close()
+for i in range (512):
+	key = ECC.generate(curve='P-256')
+	hdr = 'client'+str(i)+'.pem'
+	f = open(hdr, 'wt')
+	f.write(key.export_key(format='PEM'))
+	f.close()
+

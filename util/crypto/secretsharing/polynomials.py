@@ -11,7 +11,6 @@ from utilitybelt import secure_randint as randint
 from six import integer_types
 from Cryptodome.PublicKey import ECC
 
-
 def egcd(a, b):
     if a == 0:
         return (b, 0, 1)
@@ -36,7 +35,7 @@ def random_polynomial(degree, intercept, upper_bound):
         raise ValueError('Degree must be a non-negative number.')
     coefficients = [intercept]
     for i in range(degree):
-        random_coeff = randint(0, upper_bound - 1)
+        random_coeff = randint(0, upper_bound-1)
         coefficients.append(random_coeff)
     return coefficients
 
@@ -46,12 +45,12 @@ def get_polynomial_points(coefficients, num_points, prime):
         [ (1, f(1)), (2, f(2)), ... (n, f(n)) ]
     """
     points = []
-    for x in range(1, num_points + 1):
+    for x in range(1, num_points+1):
         # start with x=1 and calculate the value of y
         y = coefficients[0]
         # calculate each term and add it to y, using modular math
         for i in range(1, len(coefficients)):
-            exponentiation = (x ** i) % prime
+            exponentiation = (x**i) % prime
             term = (coefficients[i] * exponentiation) % prime
             y = (y + term) % prime
         # add the point to the list of points
@@ -66,7 +65,7 @@ def modular_lagrange_interpolation(x, points, prime, isecc):
     # initialize f(x) and begin the calculation: f(x) = SUM( y_i * l_i(x) )
     if isecc != 1 and isecc != 0:
         raise ValueError("isecc must be 0 or 1.")
-
+    
     lagrange_coefficients = []
 
     numerator, denominator = 1, 1
@@ -80,7 +79,7 @@ def modular_lagrange_interpolation(x, points, prime, isecc):
     # get the polynomial from the numerator + denominator mod inverse
     lagrange_polynomial = numerator * mod_inverse(denominator, prime)
     lagrange_coefficients.append(lagrange_polynomial % prime)
-
+    
     if isecc == 0:
         f_x = (prime + (int(y_values[0]) * int(lagrange_polynomial))) % prime
     elif isecc == 1:
@@ -102,7 +101,7 @@ def modular_lagrange_interpolation(x, points, prime, isecc):
         # print("lagrange_polynomial ", i, " is ", lagrange_polynomial % prime)
         # print("y value [", i, "] is", y_values[i])
         # multiply the current y & the evaluated polynomial & add it to f(x)
-
+        
         if isecc == 1:
             f_x = f_x + (y_values[i] * lagrange_polynomial)
         else:
