@@ -29,6 +29,9 @@ class Kernel:
 
         self.prove_queue = queue.Queue()
 
+        #客户端向服务器传PRO时用到的队列
+        self.Client_PRO_queue = queue.Queue()
+
         # currentTime is None until after kernelStarting() event completes
         # for all agents.  This is a pd.Timestamp that includes the date.
         self.currentTime = None
@@ -340,6 +343,10 @@ class Kernel:
                     # 所以应该是：
                     # elif msg_type == MessageType.MANAGE_SWITCH_PUBLIC:
                     # self.agents[msg.client_id].receive_manage_public_key(msg.id, msg.dh_public_key)
+
+                elif msg_type == MessageType.CLIENT_PRO:
+                    pass
+                    #服务器应该执行send_aggregation_result，服务器id emmm
 
             tmp = list()
             for manage in self.all_manager:

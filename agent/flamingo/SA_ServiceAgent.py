@@ -678,3 +678,18 @@ class SA_ServiceAgent(Agent):
                 ReqMsg(client_id=client.id,
                        client_obj=client)
             ))
+
+    #接收客户端的PRO n，计算PRO
+    def send_aggregation_result(self):
+        self.PRO += self.Client_PRO
+        aggregation_result = {}
+        # 原始代码里，服务器聚合vec的结果得找一下，这里先空下
+        # 遍历所有客户端
+        for client in self.kernel.all_clients:
+            aggregation_result[client]=(
+                self.id,
+                #局部梯度聚合结果，得找
+                self.PRO
+            )
+
+
