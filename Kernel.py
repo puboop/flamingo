@@ -3,6 +3,8 @@ import pandas as pd
 import time
 import os, queue, sys
 from message.Message import MessageType
+from agent.flamingo.SA_Manage import SA_Manage as Manage
+from agent.flamingo.SA_ClientAgent import SA_ClientAgent as Client
 
 from util.util import log_print
 
@@ -310,8 +312,9 @@ class Kernel:
             self.agents[service_id].send_request_prove()
             # 这里的 while not req_prove_handle: 是一个无限循环，等待接收“证明请求”的结果。
             # 程序会不断尝试从 prove_queue 中获取消息，处理不同类型的消息，直到处理完成。
-            req_prove_handle = False
-            while not req_prove_handle:
+            self.all_manager = self.findAgentsByType(Manage)
+            self.all_clients = self.findAgentsByType(Client)
+            while all(map(lambda x: x.agg_finish, self.all_manager + self.all_clients)) and self.prove_queue.empty():
                 try:
                     get_data = self.prove_queue.get_nowait()
                 except:
@@ -325,9 +328,11 @@ class Kernel:
                 elif msg_type == MessageType.CLIENT_SWITCH_PUBLIC:
                     # 如果从队列中获取的消息类型是 CLIENT_SWITCH_PUBLIC，则管理者在给客户端发公钥且自己算共享密钥
                     self.agents[msg.manage_id].send_dh_public_key(msg.id, msg.dh_public_key)
+                    self.agents[msg.manage_id].aggregation_clients_public_key()
                 elif msg_type == MessageType.MANAGE_SWITCH_PUBLIC:
                     # 如果消息类型为MANAGE_SWITCH_PUBLIC，则客户端在给管理者发公钥
                     self.agents[msg.client_id].receive_manage_public_key(msg.id, msg.dh_public_key)
+                    self.agents[msg.client_id].aggregation_manages_public_key()
                     # ①服务器→PROVE→客户端。②客户端→CLIENT_SWITCH_PUBLIC→管理者。③管理者→MANAGE_SWITCH_PUBLIC→客户端
                     # ①如果type是PROVE，客户端立刻执行send_dh_public_key，生成公钥以及type为CLIENT_SWITCH_PUBLIC的消息。
                     # ②type是CLIENT_SWITCH_PUBLIC，服务器立刻执行send_dh_public_key，生成公钥、共享密钥以及type为MANAGE_SWITCH_PUBLIC的消息。
@@ -336,6 +341,13 @@ class Kernel:
                     # elif msg_type == MessageType.MANAGE_SWITCH_PUBLIC:
                     # self.agents[msg.client_id].receive_manage_public_key(msg.id, msg.dh_public_key)
 
+            tmp = list()
+            for manage in self.all_manager:
+                tmp.append(manage.send_cipher_text())
+
+            for manage in tmp:
+                for client, encrypt in manage.items():
+                    client.receive_cipher_text(encrypt)
             ###################################################
 
             if self.messages.empty():

@@ -5,10 +5,14 @@
 # @FileName: SA_Manage.py
 # @Software: PyCharm
 # **************************************
+import random
+
 from util import util
 from util.DiffieHellman import DHKeyExchange, mod_args
 from message.Message import Message, MessageType
 from message.new_msg import ReqMsg
+from .SA_ClientAgent import SA_ClientAgent as ClientAgent
+from util.AesCrypto import aes_encrypt, aes_decrypt
 
 
 class SA_Manage:
@@ -24,14 +28,37 @@ class SA_Manage:
         self.dh_key_obj = DHKeyExchange(mod_args.q, mod_args.g, self.private_key)
         # 一个字典，用于存储与客户端的 Diffie-Hellman 密钥交换相关的信息。
         self.clients_dh_key = dict()
+        self.agg_finish = False
+
+        self.agg_clients_keys = ""  # k1
+        self.alpha = random.randint(10, 100)
+
+    def send_cipher_text(self):
+        encrypt_data = {}
+        for client in self.kernel.all_clients:
+            encrypt_data[client] = (
+                self.id,
+                aes_encrypt(self.agg_clients_keys),
+                aes_encrypt(self.alpha),
+            )
+        return encrypt_data
+
+    def aggregation_clients_public_key(self):
+        if len(self.clients_dh_key) == len(self.kernel.all_clients):
+            print(__file__, "\t", self.id, "\t开始聚合所有客户端key！")
+            for key in self.clients_dh_key.values():
+                self.agg_clients_keys += key["client_key"]
+            self.agg_finish = True
 
     def send_dh_public_key(self, client_id, client_dh_key):
         # 管理者在 self.clients_dh_key 中保存收到的客户端公钥，键为 client_id，值为客户端的 Diffie-Hellman 公钥。
-        self.clients_dh_key[client_id] = client_dh_key
         # 计算管理者与客户端之间的共享密钥。
         shared_key = self.dh_key_obj.compute_shared_secret(self.private_key, client_dh_key, mod_args.q)
         # 管理者将计算出的共享密钥保存到 self.dh_key_obj.shared_key 中。
-        self.dh_key_obj.shared_key = shared_key
+        self.clients_dh_key[client_id] = {
+            "client_key": client_dh_key,
+            "manage"    : shared_key,
+        }
 
         # 将一轮训练里产生的每一个共享密钥都保存起来。
         # self.dh_key_obj.shared_keys = getattr(self.dh_key_obj, 'shared_keys', []) + [shared_key]

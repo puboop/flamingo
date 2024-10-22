@@ -9,6 +9,8 @@ class MessageType(Enum):
     CLIENT_SWITCH_PUBLIC = 4  # 客户端交换公钥
     MANAGE_SWITCH_PUBLIC = 5  # 管理者交换公钥
 
+
+
     def __lt__(self, other):
         return self.value < other.value
 

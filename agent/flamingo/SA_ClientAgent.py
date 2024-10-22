@@ -29,6 +29,8 @@ from util.DiffieHellman import DHKeyExchange, mod_args
 from util.crypto import ecchash
 from util.crypto.secretsharing import secret_int_to_points, points_to_secret_int
 
+from util.AesCrypto import aes_encrypt, aes_decrypt
+
 
 # The PPFL_TemplateClientAgent class inherits from the base Agent class.
 class SA_ClientAgent(Agent):
@@ -111,8 +113,11 @@ class SA_ClientAgent(Agent):
 
         # State flag
         self.setup_complete = False
+        self.agg_finish = False
 
         self.manages_dh_key = dict()  # 初始化一个字典，用于存储与管理者（manage）相关的 Diffie-Hellman 密钥交换信息
+
+        self.agg_manages_keys = ""
 
     # Simulation lifecycle messages.
     def kernelStarting(self, startTime):
@@ -484,8 +489,7 @@ class SA_ClientAgent(Agent):
         print(*args, **kwargs)
 
     def send_dh_public_key(self):
-        manages = self.kernel.findAgentsByType(Manage)  # 找到所有类型为 Manage 的代理，存储在 manages 列表中。
-        for manage in manages:  # 遍历所有找到的管理者对象，然后将自己的 Diffie-Hellman 公钥（self.dh_key_obj.public_key）通过消息队列发送给每个管理者。
+        for manage in self.kernel.all_manager:  # 遍历所有找到的管理者对象，然后将自己的 Diffie-Hellman 公钥（self.dh_key_obj.public_key）通过消息队列发送给每个管理者。
             self.kernel.prove_queue.put((
                 MessageType.CLIENT_SWITCH_PUBLIC,
                 ReqMsg(id=self.id,  # 客户端的 ID。
@@ -494,6 +498,23 @@ class SA_ClientAgent(Agent):
             ))  # 这里是客户端将其 Diffie-Hellman 公钥发送给管理者
 
     def receive_manage_public_key(self, manage_id, manage_public_key):
-        self.manages_dh_key[manage_id] = manage_public_key
         shared_key = self.dh_key_obj.compute_shared_secret(self.private_key, manage_public_key, mod_args.q)
-        self.dh_key_obj.shared_key = shared_key
+        self.manages_dh_key[manage_id] = {
+            "client_key": shared_key,
+            "manage"    : manage_public_key,
+        }
+
+    def aggregation_manages_public_key(self):
+        if len(self.manages_dh_key) == len(self.kernel.all_manager):
+            print(__file__, "\t", self.id, "\t开始聚合所有管理端key！")
+            for key in self.manages_dh_key.values():
+                self.agg_manages_keys += key["manage"]
+            self.agg_finish = True
+
+    def receive_cipher_text(self, data: tuple):
+        manage_id, agg_clients_keys, alpha = data
+        agg_clients_keys = aes_decrypt(agg_clients_keys)
+        alpha = aes_decrypt(alpha)
+
+        self.manages_dh_key[manage_id]["agg_clients_keys"] = agg_clients_keys
+        self.manages_dh_key[manage_id]["alpha"] = alpha
