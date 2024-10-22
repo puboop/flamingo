@@ -64,9 +64,10 @@ class SA_ClientAgent(Agent):
         # sk is used to establish pairwise secret with neighbors' public keys
         self.key = util.read_key(f"pki_files/client{self.id}.pem")
         self.secret_key = self.key.d
-        self.private_key = self.key.export_key(format='PEM')
-        self.public_key = self.key.public_key().export_key(format='PEM')
+        self.private_key = self.key.export_key(format='PEM')  # 以PEM形式存私钥
+        self.public_key = self.key.public_key().export_key(format='PEM')  # 以PEM形式存公钥
 
+        # 创建一个用于 Diffie-Hellman 密钥交换的对象。
         self.dh_key_obj = DHKeyExchange(mod_args.q, mod_args.g, self.private_key)
 
         """Set parameters."""
@@ -111,7 +112,7 @@ class SA_ClientAgent(Agent):
         # State flag
         self.setup_complete = False
 
-        self.manages_dh_key = dict()
+        self.manages_dh_key = dict()  # 初始化一个字典，用于存储与管理者（manage）相关的 Diffie-Hellman 密钥交换信息
 
     # Simulation lifecycle messages.
     def kernelStarting(self, startTime):
@@ -483,14 +484,14 @@ class SA_ClientAgent(Agent):
         print(*args, **kwargs)
 
     def send_dh_public_key(self):
-        manages = self.kernel.findAgentsByType(Manage)
-        for manage in manages:
+        manages = self.kernel.findAgentsByType(Manage)  # 找到所有类型为 Manage 的代理，存储在 manages 列表中。
+        for manage in manages:  # 遍历所有找到的管理者对象，然后将自己的 Diffie-Hellman 公钥（self.dh_key_obj.public_key）通过消息队列发送给每个管理者。
             self.kernel.prove_queue.put((
                 MessageType.CLIENT_SWITCH_PUBLIC,
-                ReqMsg(id=self.id,
-                       dh_public_key=self.dh_key_obj.public_key,
-                       manage_id=manage.id)
-            ))
+                ReqMsg(id=self.id,  # 客户端的 ID。
+                       dh_public_key=self.dh_key_obj.public_key,  # 客户端的 Diffie-Hellman 公钥。
+                       manage_id=manage.id)  # 接收公钥的管理者的 ID。
+            ))  # 这里是客户端将其 Diffie-Hellman 公钥发送给管理者
 
     def receive_manage_public_key(self, manage_id, manage_public_key):
         self.manages_dh_key[manage_id] = manage_public_key

@@ -24,7 +24,9 @@ from util import util
 from util.crypto import ecchash
 from util.crypto.secretsharing import secret_int_to_points, points_to_secret_int
 
-from message.new_msg import  ReqMsg
+from message.new_msg import ReqMsg
+
+
 def parallel_mult(vec, coeff):
     """Scalar multiplication for EC points in parallel."""
     points = vec.apply(lambda row: ECC.EccPoint(row[0], row[1]), axis=1)
@@ -402,7 +404,8 @@ class SA_ServiceAgent(Agent):
                     if (nb, id) not in list(
                             self.pairwise_cipher.keys()):  # find tuples (nb, id) in self.pairwise_cipher
                         raise RuntimeError("Message lost:", (
-                        nb, id))  # the first component nb is online client, the second component id is offlne client
+                            nb,
+                            id))  # the first component nb is online client, the second component id is offlne client
                     self.dec_target_pairwise[(nb, id)] = self.pairwise_cipher[(nb, id)]
                     if nb > id:
                         self.recon_symbol[(nb, id)] = 1
@@ -666,10 +669,12 @@ class SA_ServiceAgent(Agent):
 
     def send_request_prove(self):
         for client in self.kernel.agents:
+            # 这个条件判断确保跳过与当前 ServiceAgent 的自身通信，因为不需要给自己发送证明请求。
             if client.id == self.id:
                 continue
             self.kernel.prove_queue.put((
                 MessageType.PROVE,
+                # ReqMsg 是一个包含了 client_id 和 client_obj 的消息对象，用于标识这个消息来自哪个客户端，以及需要哪些客户端对象进行证明。
                 ReqMsg(client_id=client.id,
                        client_obj=client)
             ))
