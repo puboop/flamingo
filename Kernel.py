@@ -344,8 +344,18 @@ class Kernel:
                     # elif msg_type == MessageType.MANAGE_SWITCH_PUBLIC:
                     # self.agents[msg.client_id].receive_manage_public_key(msg.id, msg.dh_public_key)
 
+                    # 客户端对称解密ct，得到Km和manage_alpha。括号里的参数是？
+                    self.agents[msg.client_id].receive_cipher_text()
+                    # 客户端聚合alpha,括号里是？
+                    self.agents[msg.client_id].aggregation_manages_alpha()
+                    # 客户端聚合K，括号里是？
+                    self.agents[msg.client_id].aggregation_manages_Km()
+                    # 客户端计算和发送各自的PRO，括号里是？
+                    self.agents[msg.client_id].send_Client_PRO()
+
+                # 如果消息类型为CLIENT_PRO，服务器执行send_aggregation_result
                 elif msg_type == MessageType.CLIENT_PRO:
-                    pass
+                    self.agents[service_id].send_aggregation_result()
                     #服务器应该执行send_aggregation_result，服务器id emmm
 
             tmp = list()

@@ -14,6 +14,8 @@ KEY = 'B4274920A7021C423E55AD15AB3C79B4'  # 密钥长度必须为16、24或32字
 
 def aes_encrypt(plain_text, _key=None):
     key = _key if _key else KEY
+    key = _pad(key)
+
     # 生成16字节的随机密钥向量
     iv = get_random_bytes(16)
 
@@ -32,6 +34,8 @@ def aes_encrypt(plain_text, _key=None):
 
 def aes_decrypt(encrypted_text, _key=None):
     key = _key if _key else KEY
+    key = _pad(key)
+
     # 解码加密后的数据
     encrypted_text = base64.b64decode(encrypted_text)
 

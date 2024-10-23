@@ -679,7 +679,7 @@ class SA_ServiceAgent(Agent):
                        client_obj=client)
             ))
 
-    #接收客户端的PRO n，计算PRO
+    #接收客户端的PRO n，计算PRO,发送PRO、聚合结果Zt
     def send_aggregation_result(self):
         self.PRO += self.Client_PRO
         aggregation_result = {}
@@ -688,7 +688,7 @@ class SA_ServiceAgent(Agent):
         for client in self.kernel.all_clients:
             aggregation_result[client]=(
                 self.id,
-                #局部梯度聚合结果，得找
+                self.final_sum,#局部梯度聚合结果，得在前面的文件里找,应该是这个吧
                 self.PRO
             )
 

@@ -29,38 +29,39 @@ class SA_Manage:
         # 一个字典，用于存储与客户端的 Diffie-Hellman 密钥交换相关的信息。
         self.clients_dh_key = dict()
 
-        #是否完成了对km,n的聚合操作，生成Km,初始值为 False。
+        # 是否完成了对km,n的聚合操作，生成Km,初始值为 False。
         self.agg_finish = False
         # k1,即Km
         self.agg_clients_keys = ""
-        #随机数manage_alpha
+        # 随机数manage_alpha
         self.manage_alpha = random.randint(10, 100)
 
-    #发送同态加密后的密文ct。ct包括Km和alpha
+    # 发送同态加密后的密文ct。ct包括Km和manage_alpha
     def send_cipher_text(self):
-        #空字典，存放每个ct
+        # 空字典，存放每个ct
         encrypt_data = {}
-        #遍历系统中的所有客户端
+        # 遍历系统中的所有客户端
         for client in self.kernel.all_clients:
+            share_key = self.clients_dh_key[client.id]["shared_key"]
             encrypt_data[client] = (
-                #管理者id
+                # 管理者id
                 self.id,
-                #对Km进行aes加密 这里应该是有问题的，
-                # agg_clients_keys是要加密的明文，是用共享密钥加密的，但这里没体现
-                aes_encrypt(self.agg_clients_keys),
-                #对manage_alpha进行aes加密，问题同上。
-                aes_encrypt(self.manage_alpha),
-                #还有一点，应该是manage_alpha和agg_clients_keys先拼接，再加密
-                #客户端那边的话就是先解密，再分割了。
+                # 对Km进行aes加密 这里应该是有问题的，
+                # agg_clients_keys是要被加密的明文，是用共享密钥加密的，但这里没体现共享密钥
+                aes_encrypt(self.agg_clients_keys, share_key),
+                # 对manage_alpha进行aes加密，问题同上。
+                aes_encrypt(self.manage_alpha, share_key),
+                # 还有一点，应该是manage_alpha和agg_clients_keys先拼接，再加密
+                # 客户端那边的话就是先解密，再分割了。
             )
         return encrypt_data
 
     # 聚合Km,n,生成Km
     def aggregation_clients_public_key(self):
-        #条件检查 self.clients_dh_key 中的公钥数量是否与 self.kernel.all_clients 中的客户端数量相等。
-        #self.clients_dh_key就是管理者根据客户端公钥生成的共享密钥
+        # 条件检查 self.clients_dh_key 中的公钥数量是否与 self.kernel.all_clients 中的客户端数量相等。
+        # self.clients_dh_key就是管理者根据客户端公钥生成的共享密钥
         if len(self.clients_dh_key) == len(self.kernel.all_clients):
-            #打印日志信息，表示开始聚合客户端的公钥。文件路径、谁在执行操作、日志信息
+            # 打印日志信息，表示开始聚合客户端的公钥。文件路径、谁在执行操作、日志信息
             print(__file__, "\t", self.id, "\t开始聚合所有客户端key！")
             for key in self.clients_dh_key.values():
                 self.agg_clients_keys += key["client_key"]
@@ -73,7 +74,7 @@ class SA_Manage:
         # 管理者将计算出的共享密钥保存到 self.dh_key_obj.shared_key 中。
         self.clients_dh_key[client_id] = {
             "client_key": client_dh_key,
-            "manage"    : shared_key,
+            "shared_key": shared_key,
         }
 
         # 将一轮训练里产生的每一个共享密钥都保存起来。

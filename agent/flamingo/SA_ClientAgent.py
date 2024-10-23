@@ -516,7 +516,7 @@ class SA_ClientAgent(Agent):
     def receive_manage_public_key(self, manage_id, manage_public_key):
         shared_key = self.dh_key_obj.compute_shared_secret(self.private_key, manage_public_key, mod_args.q)
         self.manages_dh_key[manage_id] = {
-            "client_key": shared_key,
+            "shared_key": shared_key,
             "manage"    : manage_public_key,
         }
 
@@ -531,6 +531,7 @@ class SA_ClientAgent(Agent):
     #对称解密ct，得到Km和manage_alpha
     def receive_cipher_text(self, data: tuple):
         manage_id, agg_clients_keys, manage_alpha = data
+        # 用对称密钥解密，但没体现对称密钥，如何引入(因为要和id一一对应)
         agg_clients_keys = aes_decrypt(agg_clients_keys)
         manage_alpha = aes_decrypt(manage_alpha)
 
@@ -553,12 +554,24 @@ class SA_ClientAgent(Agent):
                 self.K += key["agg_clients_keys"]
             self.agg_Km_finish = True
 
-    # 客户端生成PRO n并发送至服务器
+    # 客户端生成CLIENT_PRO并发送至服务器
     def send_Client_PRO(self):
         self.Client_PRO= self.agg_manages_keys + self.alpha * self.vec_n
         self.kernel.Client_PRO_queue.put((
             MessageType.CLIENT_PRO,
             ReqMsg(id=self.id,  # 客户端的 ID。
-                   PRO_n=self.Client_PRO  # 客户端的 PRO。
-                   )  # 服务器的 ID。这个怎么写
+                   PRO_n=self.Client_PRO,  # 客户端的 PRO。
+                   Service_ID=self.agents[service_id]# 传给服务器，服务器的 ID。这个怎么写
+                   )
         ))
+
+    # 客户端先接收PRO和Zt，然后用PRO验证Zt
+    def verify_result(self,result,tuple):
+        PRO, Zt= result
+        K = self.K
+        alpha = self.alpha
+        if PRO - K- alpha * Zt ==0 :
+            print("The server's aggregation result is correct")
+        else:
+            print("The server's aggregation result is wrong")
+            #还得写一个结束进程的指令0
