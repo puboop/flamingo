@@ -29,7 +29,7 @@ class Kernel:
 
         self.prove_queue = queue.Queue()
 
-        #客户端向服务器传PRO时用到的队列
+        # 客户端向服务器传PRO时用到的队列
         self.Client_PRO_queue = queue.Queue()
 
         # currentTime is None until after kernelStarting() event completes
@@ -317,7 +317,8 @@ class Kernel:
             # 程序会不断尝试从 prove_queue 中获取消息，处理不同类型的消息，直到处理完成。
             self.all_manager = self.findAgentsByType(Manage)
             self.all_clients = self.findAgentsByType(Client)
-            while all(map(lambda x: x.agg_finish, self.all_manager + self.all_clients)) and self.prove_queue.empty():
+            while not all(
+                    map(lambda x: x.agg_finish, self.all_manager + self.all_clients)) and self.prove_queue.empty():
                 try:
                     get_data = self.prove_queue.get_nowait()
                 except:
@@ -356,7 +357,7 @@ class Kernel:
                 # 如果消息类型为CLIENT_PRO，服务器执行send_aggregation_result
                 elif msg_type == MessageType.CLIENT_PRO:
                     self.agents[service_id].send_aggregation_result()
-                    #服务器应该执行send_aggregation_result，服务器id emmm
+                    # 服务器应该执行send_aggregation_result，服务器id emmm
 
             tmp = list()
             for manage in self.all_manager:
@@ -365,6 +366,11 @@ class Kernel:
             for manage in tmp:
                 for client, encrypt in manage.items():
                     client.receive_cipher_text(encrypt)
+            clients_pro = []
+            for client in self.all_clients:
+                clients_pro.append(client.count_manage_m_k())
+            server_id = self.findAgentByType(Service)
+            self.agents[server_id].count_clients_pro(clients_pro)
             ###################################################
 
             if self.messages.empty():

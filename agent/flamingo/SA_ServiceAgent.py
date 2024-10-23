@@ -691,5 +691,8 @@ class SA_ServiceAgent(Agent):
                 self.final_sum,#局部梯度聚合结果，得在前面的文件里找,应该是这个吧
                 self.PRO
             )
-
+    def count_clients_pro(self, clients_pro:list):
+        aggregation_pro = np.sum(clients_pro)
+        self.recv_user_vectors[sender_id]
+        return aggregation_pro
 

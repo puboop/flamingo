@@ -116,7 +116,7 @@ class SA_ClientAgent(Agent):
         # 是否完成了对Kn,m的聚合操作,生成Kn
         self.agg_finish = False
         # 是否完成对alpha m的聚合操作,生成alpha
-        self.agg_alpha_finish=False
+        self.agg_alpha_finish = False
         # 是否完成对Km的聚合操作，生成K
         self.agg_Km_finish = False
 
@@ -130,7 +130,9 @@ class SA_ClientAgent(Agent):
         self.K = ""
         # 客户端的PRO_n
         self.Client_PRO = ""
-        #疑问：都设置为”“，都是字符串类型吗？如果不是，那这样会有问题吗？
+        # 疑问：都设置为”“，都是字符串类型吗？如果不是，那这样会有问题吗？
+
+        self.vec_n = np.ones(self.vector_len, dtype=self.vector_dtype)
 
     # Simulation lifecycle messages.
     def kernelStarting(self, startTime):
@@ -347,7 +349,7 @@ class SA_ClientAgent(Agent):
         """
         vec = np.ones(self.vector_len, dtype=self.vector_dtype)
         # 客户端本地梯度，后面计算客户端的PRO_n要用
-        self.vec_n = np.ones(self.vector_len, dtype=self.vector_dtype)
+        # self.vec_n = np.ones(self.vector_len, dtype=self.vector_dtype)
 
         # vectorize bytes: 32 bit integer, 4 bytes per component
         vec_prg_mi = np.frombuffer(prg_mi, dtype=self.vector_dtype)
@@ -512,7 +514,7 @@ class SA_ClientAgent(Agent):
                        manage_id=manage.id)  # 接收公钥的管理者的 ID。
             ))  # 这里是客户端将其 Diffie-Hellman 公钥发送给管理者
 
-    #收到管理者m的公钥，生成共享密钥kn,m
+    # 收到管理者m的公钥，生成共享密钥kn,m
     def receive_manage_public_key(self, manage_id, manage_public_key):
         shared_key = self.dh_key_obj.compute_shared_secret(self.private_key, manage_public_key, mod_args.q)
         self.manages_dh_key[manage_id] = {
@@ -528,15 +530,25 @@ class SA_ClientAgent(Agent):
                 self.agg_manages_keys += key["manage"]
             self.agg_finish = True
 
-    #对称解密ct，得到Km和manage_alpha
+    # 对称解密ct，得到Km和manage_alpha
     def receive_cipher_text(self, data: tuple):
         manage_id, agg_clients_keys, manage_alpha = data
         # 用对称密钥解密，但没体现对称密钥，如何引入(因为要和id一一对应)
-        agg_clients_keys = aes_decrypt(agg_clients_keys)
-        manage_alpha = aes_decrypt(manage_alpha)
+        share_key = self.manages_dh_key[manage_id]['shared_key']
+        agg_clients_keys = aes_decrypt(agg_clients_keys, share_key)
+        manage_alpha = aes_decrypt(manage_alpha, share_key)
 
         self.manages_dh_key[manage_id]["agg_clients_keys"] = agg_clients_keys
         self.manages_dh_key[manage_id]["manage_alpha"] = manage_alpha
+
+    def count_manage_m_k(self):
+        all_m_alpha = 0
+        all_m_k = ""
+        for m in self.manages_dh_key.values():
+            all_m_alpha += m["manage_alpha"]
+            all_m_k += m["agg_clients_keys"]
+        self.Client_PRO = all_m_k + all_m_alpha * self.vec_n
+        return self.Client_PRO
 
     # 聚合alpha
     def aggregation_manages_alpha(self):
@@ -556,22 +568,22 @@ class SA_ClientAgent(Agent):
 
     # 客户端生成CLIENT_PRO并发送至服务器
     def send_Client_PRO(self):
-        self.Client_PRO= self.agg_manages_keys + self.alpha * self.vec_n
+        self.Client_PRO = self.agg_manages_keys + self.alpha * self.vec_n
         self.kernel.Client_PRO_queue.put((
             MessageType.CLIENT_PRO,
             ReqMsg(id=self.id,  # 客户端的 ID。
                    PRO_n=self.Client_PRO,  # 客户端的 PRO。
-                   Service_ID=self.agents[service_id]# 传给服务器，服务器的 ID。这个怎么写
+                   Service_ID=self.agents[service_id]  # 传给服务器，服务器的 ID。这个怎么写
                    )
         ))
 
     # 客户端先接收PRO和Zt，然后用PRO验证Zt
-    def verify_result(self,result,tuple):
-        PRO, Zt= result
+    def verify_result(self, result, tuple):
+        PRO, Zt = result
         K = self.K
         alpha = self.alpha
-        if PRO - K- alpha * Zt ==0 :
+        if PRO - K - alpha * Zt == 0:
             print("The server's aggregation result is correct")
         else:
             print("The server's aggregation result is wrong")
-            #还得写一个结束进程的指令0
+            # 还得写一个结束进程的指令0
