@@ -179,7 +179,7 @@ secret_scale = 1000000
 #   the data into the structures expected by the PPFL clients.  For example:
 #   X_train, X_test, y_train, y_test = train_test_split(X_data, y_data, test_size=0.25, random_state = shuffle_seed)
 #
-X_input, y_input = fetch_data(dataset, return_X_y=True)
+X_input, y_input = fetch_data(dataset, return_X_y=True, local_cache_dir=r"datasets")
 scaler = StandardScaler()
 scaler.fit(X_input)
 X_input = scaler.transform(X_input)
