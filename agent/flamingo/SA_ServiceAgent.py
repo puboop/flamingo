@@ -684,6 +684,8 @@ class SA_ServiceAgent(Agent):
         self.PRO += self.Client_PRO
         aggregation_result = {}
         # 原始代码里，服务器聚合vec的结果得找一下，这里先空下
+        # fedlearn那个文件里，它根据final_sum生成了全局参数，然后把参数传给客户端了
+        # 所以在这里把 final_sum传一下好了
         # 遍历所有客户端
         for client in self.kernel.all_clients:
             aggregation_result[client]=(
