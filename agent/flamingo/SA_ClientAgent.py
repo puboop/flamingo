@@ -254,6 +254,14 @@ class SA_ClientAgent(Agent):
         # End of the protocol / start the next iteration
         # Receiving the output from the server
         elif msg.body['msg'] == "REQ" and self.current_iteration != 0:
+            self.final_sum = msg.body['final_sum']
+            self.PRO = msg.body['PRO']
+            K = self.K
+            alpha = self.alpha
+            if self.PRO - K - alpha * self.final_sum != 0:
+                # 结束进程怎么写，先空下
+                print("The server's aggregation result is wrong")
+                exit(-1)
             self.global_coefs = msg.body['coefs']
             self.global_int = msg.body['ints']
             self.global_n_iter = msg.body['n_iter']
@@ -264,6 +272,7 @@ class SA_ClientAgent(Agent):
             self.global_loss = msg.body['loss']
             self.global_best_loss = msg.body['best_loss']
             self.global_loss_curve = msg.body['loss_curve']
+            print("The server's aggregation result is correct")
 
             # End of the iteration
             # Reset temp variables for each iteration
