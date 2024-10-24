@@ -11,7 +11,7 @@ from util import util
 from util.DiffieHellman import DHKeyExchange, mod_args
 from message.Message import Message, MessageType
 from message.new_msg import ReqMsg
-from .SA_ClientAgent import SA_ClientAgent as ClientAgent
+# from .SA_ClientAgent import SA_ClientAgent as ClientAgent
 from util.AesCrypto import aes_encrypt, aes_decrypt
 
 
