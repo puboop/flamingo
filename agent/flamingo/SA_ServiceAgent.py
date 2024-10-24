@@ -643,9 +643,6 @@ class SA_ServiceAgent(Agent):
             final_sum = self.vec_sum_partial + mi_vec
             print("[Server] no client dropped out.")
             print("[Server] final sum:", self.vec_sum_partial + mi_vec)
-        self.final_sum = final_sum
-        self.PRO += self.Client_PRO
-
         rec = len(self.user_vectors)
 
         self.user_vectors = {}
@@ -722,8 +719,6 @@ class SA_ServiceAgent(Agent):
                              Message({"msg"       : "REQ",
                                       "sender"    : 0,
                                       "output"    : 1,
-                                      "final_sum" : self.final_sum,
-                                      "PRO"       : self.PRO,
                                       "coefs"     : mlp.coefs_,
                                       "ints"      : mlp.intercepts_,
                                       "n_iter"    : mlp.n_iter_,

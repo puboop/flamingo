@@ -255,13 +255,6 @@ class SA_ClientAgent(Agent):
         # Receiving the output from the server
         elif msg.body['msg'] == "REQ" and self.current_iteration != 0:
             self.aggregation_sum = msg.body['final_sum']
-            self.PRO = msg.body['PRO']
-            K = self.K
-            alpha = self.alpha
-            if self.PRO - K - alpha * self.aggregation_sum != 0:
-                # 结束进程怎么写，先空下
-                print("The server's aggregation result is wrong")
-                exit(-1)
             self.global_coefs = msg.body['coefs']
             self.global_int = msg.body['ints']
             self.global_n_iter = msg.body['n_iter']
