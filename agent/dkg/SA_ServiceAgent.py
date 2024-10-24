@@ -37,7 +37,9 @@ class SA_ServiceAgent(Agent):
                              'BCAST_QUAL'        : pd.Timedelta(0),
                              }
 
-        self.users = users  # The list of all users id 
+        # Total number of clients and the threshold
+        self.users = users  # The list of all users id
+        self.threshold = int(param.fraction * len(self.users))
 
         self.users_shares = {}
         self.recv_users_shares = {}
@@ -125,7 +127,7 @@ class SA_ServiceAgent(Agent):
         sender_id = msg.body['sender']
 
         if msg.body['iteration'] != self.current_iteration:
-            raise RuntimeError("wrong iteration number.")
+            raise RunTimeError("wrong iteration number.")
             return
 
         # Round 1: receiving s_i and commitments from each client i
@@ -162,8 +164,12 @@ class SA_ServiceAgent(Agent):
     # Processing and replying the messages.
 
     def initFunc(self, currentTime):
+        dt_protocol_start = pd.Timestamp('now')
+
+        print("Server init time:", dt_protocol_start)
+
         self.current_round = 1
-        self.setWakeup(currentTime + pd.Timedelta('1s'))
+        self.setWakeup(currentTime + pd.Timedelta('2s'))
 
     def share_and_commit(self, currentTime):
         dt_protocol_start = pd.Timestamp('now')
@@ -249,8 +255,33 @@ class SA_ServiceAgent(Agent):
                              tag="server_bcast_qual")
 
         # no need to waiit for each client checks, protocol ends
+        # self.setWakeup(currentTime + pd.Timedelta('200ms'))
 
-        self.printMessageArrivalTime(self.arrival_time_share_and_commit[0])
+        st = self.arrival_time_share_and_commit[0]
+
+        step1_list = []
+        for i in range(len(self.arrival_time_share_and_commit)):
+            step1_list.append((self.arrival_time_share_and_commit[i] - st).total_seconds())
+
+        print(step1_list)
+
+        step2_list = []
+        for i in range(len(self.arrival_time_accept_or_complain)):
+            step2_list.append((self.arrival_time_accept_or_complain[i] - st).total_seconds())
+
+        print(step2_list)
+
+        step3_list = []
+        for i in range(len(self.arrival_time_forward_share)):
+            step3_list.append((self.arrival_time_forward_share[i] - st).total_seconds())
+
+        print(step3_list)
+
+        step4_list = []
+        for i in range(len(self.arrival_time_bcast_qual)):
+            step4_list.append((self.arrival_time_bcast_qual[i] - st).total_seconds())
+
+        print(step4_list)
 
         self.current_round = 1
 
@@ -258,35 +289,6 @@ class SA_ServiceAgent(Agent):
         return
 
     # ======================== UTIL ========================
-
-    def printMessageArrivalTime(self, startTime):
-        print(f"\n Message arrival time (seconds) for 4 steps: \n")
-
-        step1_list = []
-        for i in range(len(self.arrival_time_share_and_commit)):
-            step1_list.append((self.arrival_time_share_and_commit[i] - startTime).total_seconds())
-
-        print(step1_list)
-
-        step2_list = []
-        for i in range(len(self.arrival_time_accept_or_complain)):
-            step2_list.append((self.arrival_time_accept_or_complain[i] - startTime).total_seconds())
-
-        print(step2_list)
-
-        step3_list = []
-        for i in range(len(self.arrival_time_forward_share)):
-            step3_list.append((self.arrival_time_forward_share[i] - startTime).total_seconds())
-
-        print(step3_list)
-
-        step4_list = []
-        for i in range(len(self.arrival_time_bcast_qual)):
-            step4_list.append((self.arrival_time_bcast_qual[i] - startTime).total_seconds())
-
-        print(step4_list)
-
-        print()
 
     def recordTime(self, startTime, categoryName):
         # Accumulate into offline setup.

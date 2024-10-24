@@ -30,7 +30,7 @@ if args.config_help:
     sys.exit()
 
 # Historical date to simulate.  Required even if not relevant.
-historical_date = pd.to_datetime('2023-01-01')
+historical_date = pd.to_datetime('2014-01-28')
 
 # Requested log directory.
 log_dir = args.log_dir
