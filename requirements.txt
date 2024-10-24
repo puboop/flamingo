@@ -19,10 +19,12 @@ pytz==2019.1
 
 seaborn==0.9.0
 six==1.12.0
-tqdm
+tqdm==4.36.1
 
 pynacl==1.5.0
 pycryptodomex==3.17.0
 
 scikit-learn
 pmlb
+
+pycryptodome

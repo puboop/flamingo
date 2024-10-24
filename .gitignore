@@ -56,8 +56,8 @@ cover/
 *.pot
 
 log/
-pki_files/
 .idea/
+*.pem
 
 # Django stuff:
 *.log

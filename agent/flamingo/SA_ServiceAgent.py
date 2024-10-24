@@ -1,8 +1,10 @@
 from agent.Agent import Agent
 from message.Message import Message
+from message.Message import MessageType
 
 import multiprocessing
 import dill
+import json
 import time
 import logging
 
@@ -20,8 +22,11 @@ from Cryptodome.Signature import DSS
 
 # other user-level crypto functions
 from util import param
+from util import util
 from util.crypto import ecchash
 from util.crypto.secretsharing import secret_int_to_points, points_to_secret_int
+
+from message.new_msg import ReqMsg
 
 from sklearn.neural_network import MLPClassifier
 
@@ -105,10 +110,14 @@ class SA_ServiceAgent(Agent):
         # parallel
         self.parallel_mode = parallel_mode
 
-        # system  
+        # system
         self.msg_fwd_delay = msg_fwd_delay  # time to forward a peer-to-peer client relay message
+        # 每轮默认等待时间
         self.round_time = round_time  # default waiting time per round
-        self.no_of_iterations = iterations  # number of iterations 
+        # 迭代次数
+        self.no_of_iterations = iterations  # number of iterations
+        # parallel
+        self.parallel_mode = parallel_mode  # parallel
 
         """ Read keys. """
         # server (sk, pk)
@@ -129,6 +138,7 @@ class SA_ServiceAgent(Agent):
             raise RuntimeError("No such file. Run setup_pki.py first.")
 
         # agent accumulation of elapsed times by category of tasks
+        # 按任务类别计算的代理运行时间累积
         self.elapsed_time = {'REPORT'        : pd.Timedelta(0),
                              'CROSSCHECK'    : pd.Timedelta(0),
                              'RECONSTRUCTION': pd.Timedelta(0),
@@ -166,9 +176,11 @@ class SA_ServiceAgent(Agent):
         self.vec_sum_partial = np.zeros(self.vector_len, dtype=self.vector_dtype)
 
         # Track the current iteration and round of the protocol.
+        # 跟踪协议的当前迭代和轮次。
         self.current_iteration = 1
         self.current_round = 0
 
+        # 映射消息处理功能
         # Map the message processing functions
         self.aggProcessingMap = {
             0: self.initFunc,
@@ -185,19 +197,22 @@ class SA_ServiceAgent(Agent):
         }
 
     # Simulation lifecycle messages.
-
+    # 仿真生命周期消息。
     def kernelStarting(self, startTime):
         # self.kernel is set in Agent.kernelInitializing()
 
         # Initialize custom state properties into which we will accumulate results later.
+        # 初始化自定义状态属性，稍后我们将在其中累积结果。
         self.kernel.custom_state['srv_report'] = pd.Timedelta(0)
         self.kernel.custom_state['srv_crosscheck'] = pd.Timedelta(0)
         self.kernel.custom_state['srv_reconstruction'] = pd.Timedelta(0)
 
         # This agent should have negligible (or no) computation delay until otherwise specified.
+        # 除非另有规定，否则此代理的计算延迟应可忽略不计（或没有）。
         self.setComputationDelay(0)
 
         # Request a wake-up call as in the base Agent.
+        # 请求唤醒电话，就像在基本代理中一样。
         super().kernelStarting(startTime)
 
     def kernelStopping(self):
@@ -227,30 +242,27 @@ class SA_ServiceAgent(Agent):
             f"[Server] wakeup in iteration {self.current_iteration} at function {self.namedict[self.current_round]}; current time is {currentTime}")
 
         # In the k-th iteration
+        # 在第k次迭代中
         self.aggProcessingMap[self.current_round](currentTime)
-
-    # On receiving messages
 
     def receiveMessage(self, currentTime, msg):
         # Allow the base Agent to do whatever it needs to.
+        # 允许基础代理做任何它需要做的事情。
         super().receiveMessage(currentTime, msg)
 
         # Get the sender's id (should be client id)
+        # 获取发件人的id（应该是客户端id）
         sender_id = msg.body['sender']
 
-        """Collect messages from clients.
-        Three types: 
-            VECTOR message meant for report step, 
-            SIGN message meant for crosscheck step,
-            SHARED_RESULT message meant for reconstruction step.
-        """
         # Collect masked vectors from clients
+        # 从客户端收集掩码向量
         if msg.body['msg'] == "VECTOR":
             dt_protocol_start = pd.Timestamp('now')
 
             if msg.body['iteration'] == self.current_iteration:
 
                 # Store the vectors
+                # 存储矢量
                 self.recv_user_vectors[sender_id] = msg.body['vector']
                 if __debug__:
                     self.logger.info(f"Server received vector from client {sender_id - 1} at {currentTime}")
@@ -277,10 +289,12 @@ class SA_ServiceAgent(Agent):
                         f"LATE MSG: Server receives VECTORS from iteration {msg.body['iteration']} client {msg.body['sender']}")
 
         # Collect signed labels from decryptors
+        # 从解密器收集签名标签
         elif msg.body['msg'] == "SIGN":
             dt_protocol_start = pd.Timestamp('now')
 
             if msg.body['iteration'] == self.current_iteration:
+                # 将签名转发给所有解密器
                 # forward the signatures to all decryptors
                 self.recv_committee_sigs[sender_id] = msg.body['signed_labels']
 
@@ -290,6 +304,7 @@ class SA_ServiceAgent(Agent):
                         f"LATE MSG: Server receives signed labels from iteration {msg.body['iteration']} client {msg.body['sender']}")
 
         # Collect partial decryption results from decryptors
+        # 从解密器收集部分解密结果
         elif msg.body['msg'] == "SHARED_RESULT":
 
             dt_protocol_start = pd.Timestamp('now')
@@ -300,14 +315,15 @@ class SA_ServiceAgent(Agent):
                 self.recv_committee_shares_mi[sender_id] = msg.body['shared_result_mi']
                 self.recv_recon_index[sender_id] = msg.body['committee_member_idx']
 
+                # self.logger.info(f"communication for received decryption shares: {comm}") 
             else:
                 if __debug__:
                     self.logger.info(
                         f"LATE MSG: Server receives SHARED_RESULT from iteration {msg.body['iteration']} client {msg.body['sender']}")
 
     # Processing and replying the messages.
-    # NOTE: the currentTime parameter is the 'start' of the function
-    def initFunc(self, currentTime):
+    # 处理和回复消息。
+    def initialize(self, currentTime):
         dt_protocol_start = pd.Timestamp('now')
 
         # Simulate the Shamir share of SK at each decryptor
@@ -332,9 +348,6 @@ class SA_ServiceAgent(Agent):
 
         server_comp_delay = pd.Timestamp('now') - dt_protocol_start
         self.setWakeup(currentTime + server_comp_delay + pd.Timedelta('2s'))
-
-        # Accumulate into time log.
-        # self.recordTime(dt_protocol_start, "INIT")
 
     def report(self, currentTime):
         """Process masked vectors.
@@ -395,7 +408,7 @@ class SA_ServiceAgent(Agent):
         for id in offline_set:
             # TODO OPTMIZATION: store neighbors to reduce time
             # find neighbors for client id
-            # client id is from 1 
+            # client id is from 1
             clt_neighbors_list = param.findNeighbors(param.root_seed, self.current_iteration, self.num_clients, id,
                                                      self.neighborhood_size)
 
@@ -754,3 +767,45 @@ class SA_ServiceAgent(Agent):
         # Accumulate into time log.
         dt_protocol_end = pd.Timestamp('now')
         self.elapsed_time[categoryName] += dt_protocol_end - startTime
+
+    def agent_print(*args, **kwargs):
+        """
+        Custom print function that adds a [Server] header before printing.
+
+        Args:
+            *args: Any positional arguments that the built-in print function accepts.
+            **kwargs: Any keyword arguments that the built-in print function accepts.
+        """
+        print(*args, **kwargs)
+
+    def send_request_prove(self):
+        for client in self.kernel.agents:
+            # 这个条件判断确保跳过与当前 ServiceAgent 的自身通信，因为不需要给自己发送证明请求。
+            if client.id == self.id:
+                continue
+            self.kernel.prove_queue.put((
+                MessageType.PROVE,
+                # ReqMsg 是一个包含了 client_id 和 client_obj 的消息对象，用于标识这个消息来自哪个客户端，以及需要哪些客户端对象进行证明。
+                ReqMsg(client_id=client.id,
+                       client_obj=client)
+            ))
+
+    #接收客户端的PRO n，计算PRO,发送PRO、聚合结果Zt
+    def send_aggregation_result(self):
+        self.PRO += self.Client_PRO
+        aggregation_result = {}
+        # 原始代码里，服务器聚合vec的结果得找一下，这里先空下
+        # fedlearn那个文件里，它根据final_sum生成了全局参数，然后把参数传给客户端了
+        # 所以在这里把 final_sum传一下好了
+        # 遍历所有客户端
+        for client in self.kernel.all_clients:
+            aggregation_result[client]=(
+                self.id,
+                self.final_sum,#局部梯度聚合结果，得在前面的文件里找,应该是这个吧
+                self.PRO
+            )
+    def count_clients_pro(self, clients_pro:list):
+        aggregation_pro = np.sum(clients_pro)
+        self.recv_user_vectors[sender_id]
+        return aggregation_pro
+

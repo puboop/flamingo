@@ -1,6 +1,8 @@
 from agent.Agent import Agent
 from agent.flamingo.SA_ServiceAgent import SA_ServiceAgent as ServiceAgent
-from message.Message import Message
+from agent.flamingo.SA_Manage import SA_Manage as Manage
+from message.Message import Message, MessageType
+from message.new_msg import ReqMsg
 
 import dill
 import time
@@ -22,8 +24,12 @@ from Cryptodome.Signature import DSS
 # other user-level crypto functions
 import hashlib
 from util import param
+from util import util
+from util.DiffieHellman import DHKeyExchange, mod_args
 from util.crypto import ecchash
 from util.crypto.secretsharing import secret_int_to_points, points_to_secret_int
+
+from util.AesCrypto import aes_encrypt, aes_decrypt
 
 from sklearn.neural_network import MLPClassifier
 
@@ -137,6 +143,13 @@ class SA_ClientAgent(Agent):
             self.system_pk = system_key.pointQ
         except IOError:
             raise RuntimeError("No such file. Run setup_pki.py first.")
+        self.key = util.read_key(f"pki_files/client{self.id}.pem")
+        self.secret_key = self.key.d
+        self.private_key = self.key.export_key(format='PEM')  # 以PEM形式存私钥
+        self.public_key = self.key.public_key().export_key(format='PEM')  # 以PEM形式存公钥
+
+        # 创建一个用于 Diffie-Hellman 密钥交换的对象。
+        self.dh_key_obj = DHKeyExchange(mod_args.q, mod_args.g, self.private_key)
 
         """ Set parameters. """
         self.num_clients = num_clients
@@ -177,6 +190,26 @@ class SA_ClientAgent(Agent):
 
         # State flag
         self.setup_complete = False
+        # 是否完成了对Kn,m的聚合操作,生成Kn
+        self.agg_finish = False
+        # 是否完成对alpha m的聚合操作,生成alpha
+        self.agg_alpha_finish = False
+        # 是否完成对Km的聚合操作，生成K
+        self.agg_Km_finish = False
+
+        # 初始化一个字典，用于存储与管理者（manage）相关的 Diffie-Hellman 密钥交换信息
+        self.manages_dh_key = dict()
+        # Kn
+        self.agg_manages_keys = ""
+        # alpha
+        self.alpha = ""
+        # K
+        self.K = ""
+        # 客户端的PRO_n
+        self.Client_PRO = ""
+        # 疑问：都设置为”“，都是字符串类型吗？如果不是，那这样会有问题吗？
+
+        self.vec_n = np.ones(self.vector_len, dtype=self.vector_dtype)
 
     # Simulation lifecycle messages.
     def kernelStarting(self, startTime):
@@ -189,6 +222,7 @@ class SA_ClientAgent(Agent):
             self.kernel.custom_state['clt_reconstruction'] = pd.Timedelta(0)
 
         # Find the PPFL service agent, so messages can be directed there.
+        # 找到PPFL服务代理，以便将消息定向到那里。
         self.serviceAgentID = self.kernel.findAgentByType(ServiceAgent)
 
         self.setComputationDelay(0)
@@ -223,12 +257,13 @@ class SA_ClientAgent(Agent):
         super().receiveMessage(currentTime, msg)
 
         # with signatures of other clients from the server
+        # 具有来自服务器的其他客户端的签名
         if msg.body['msg'] == "COMMITTEE_SHARED_SK":
             dt_protocol_start = pd.Timestamp('now')
             self.committee_shared_sk = msg.body['sk_share']
             self.committee_member_idx = msg.body['committee_member_idx']
 
-        elif msg.body['msg'] == "SIGN":
+        elif msg.body['msg'] == "SIGN":  # 签名
             if msg.body['iteration'] == self.current_iteration:
                 dt_protocol_start = pd.Timestamp('now')
                 self.cipher_stored = msg
@@ -373,7 +408,7 @@ class SA_ClientAgent(Agent):
             self.logger.info(f"client {self.id} neighbors list: {self.neighbors_list}")
 
         # Download public keys of neighbors from PKI file
-        # NOTE: the ABIDES framework has client id starting from 1. 
+        # NOTE: the ABIDES framework has client id starting from 1.
         neighbor_pubkeys = {}
         for id in self.neighbors_list:
             try:
@@ -407,6 +442,7 @@ class SA_ClientAgent(Agent):
             committee_pubkeys[id] = pk
 
         # separately encrypt each share
+        # 分别加密每个共享
         enc_mi_shares = []
         # id is the x-axis
         cnt = 0
@@ -421,11 +457,13 @@ class SA_ClientAgent(Agent):
             # nouce should be sent with ciphertext
             nonce = per_share_encryptor.nonce
 
+            # 加密并校验数据的完整性
             tmp, _ = per_share_encryptor.encrypt_and_digest(per_share_bytes)
             enc_mi_shares.append((tmp, nonce))
             cnt += 1
 
         # Compute mask, compute masked vector
+        # 计算掩码，计算掩码向量
         # PRG individual mask
         prg_mi_holder = ChaCha20.new(key=mi_bytes, nonce=param.nonce)
         data = b"secr" * self.vector_len
@@ -659,3 +697,96 @@ class SA_ClientAgent(Agent):
     def recordTime(self, startTime, categoryName):
         dt_protocol_end = pd.Timestamp('now')
         self.elapsed_time[categoryName] += dt_protocol_end - startTime
+
+    def agent_print(*args, **kwargs):
+        """
+        Custom print function that adds a [Server] header before printing.
+
+        Args:
+            *args: Any positional arguments that the built-in print function accepts.
+            **kwargs: Any keyword arguments that the built-in print function accepts.
+        """
+        print(*args, **kwargs)
+
+    def send_dh_public_key(self):
+        for manage in self.kernel.all_manager:  # 遍历所有找到的管理者对象，然后将自己的 Diffie-Hellman 公钥（self.dh_key_obj.public_key）通过消息队列发送给每个管理者。
+            self.kernel.prove_queue.put((
+                MessageType.CLIENT_SWITCH_PUBLIC,
+                ReqMsg(id=self.id,  # 客户端的 ID。
+                       dh_public_key=self.dh_key_obj.public_key,  # 客户端的 Diffie-Hellman 公钥。
+                       manage_id=manage.id)  # 接收公钥的管理者的 ID。
+            ))  # 这里是客户端将其 Diffie-Hellman 公钥发送给管理者
+
+    # 收到管理者m的公钥，生成共享密钥kn,m
+    def receive_manage_public_key(self, manage_id, manage_public_key):
+        shared_key = self.dh_key_obj.compute_shared_secret(self.private_key, manage_public_key, mod_args.q)
+        self.manages_dh_key[manage_id] = {
+            "shared_key": shared_key,
+            "manage"    : manage_public_key,
+        }
+
+    # 聚合Kn,m，生成Kn
+    def aggregation_manages_public_key(self):
+        if len(self.manages_dh_key) == len(self.kernel.all_manager):
+            print(__file__, "\t", self.id, "\t开始聚合所有管理端key！")
+            for key in self.manages_dh_key.values():
+                self.agg_manages_keys += key["manage"]
+            self.agg_finish = True
+
+    # 对称解密ct，得到Km和manage_alpha
+    def receive_cipher_text(self, data: tuple):
+        manage_id, agg_clients_keys, manage_alpha = data
+        # 用对称密钥解密，但没体现对称密钥，如何引入(因为要和id一一对应)
+        share_key = self.manages_dh_key[manage_id]['shared_key']
+        agg_clients_keys = aes_decrypt(agg_clients_keys, share_key)
+        manage_alpha = aes_decrypt(manage_alpha, share_key)
+
+        self.manages_dh_key[manage_id]["agg_clients_keys"] = agg_clients_keys
+        self.manages_dh_key[manage_id]["manage_alpha"] = manage_alpha
+
+    def count_manage_m_k(self):
+        all_m_alpha = 0
+        all_m_k = ""
+        for m in self.manages_dh_key.values():
+            all_m_alpha += m["manage_alpha"]
+            all_m_k += m["agg_clients_keys"]
+        self.Client_PRO = all_m_k + all_m_alpha * self.vec_n
+        return self.Client_PRO
+
+    # 聚合alpha
+    def aggregation_manages_alpha(self):
+        if len(self.manages_dh_key) == len(self.kernel.all_manager):
+            print(__file__, "\t", self.id, "\t开始聚合所有管理者的alpha！")
+            for key in self.manages_dh_key.values():
+                self.alpha += key["manage_alpha"]
+            self.agg_alpha_finish = True
+
+    # 聚合K
+    def aggregation_manages_Km(self):
+        if len(self.manages_dh_key) == len(self.kernel.all_manager):
+            print(__file__, "\t", self.id, "\t开始聚合所有管理者的Km！")
+            for key in self.manages_dh_key.values():
+                self.K += key["agg_clients_keys"]
+            self.agg_Km_finish = True
+
+    # 客户端生成CLIENT_PRO并发送至服务器
+    def send_Client_PRO(self):
+        self.Client_PRO = self.agg_manages_keys + self.alpha * self.vec_n
+        self.kernel.Client_PRO_queue.put((
+            MessageType.CLIENT_PRO,
+            ReqMsg(id=self.id,  # 客户端的 ID。
+                   PRO_n=self.Client_PRO,  # 客户端的 PRO。
+                   Service_ID=self.agents[service_id]  # 传给服务器，服务器的 ID。这个怎么写
+                   )
+        ))
+
+    # 客户端先接收PRO和Zt，然后用PRO验证Zt
+    def verify_result(self, result, tuple):
+        PRO, Zt = result
+        K = self.K
+        alpha = self.alpha
+        if PRO - K - alpha * Zt == 0:
+            print("The server's aggregation result is correct")
+        else:
+            print("The server's aggregation result is wrong")
+            # 还得写一个结束进程的指令0

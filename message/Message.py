@@ -5,6 +5,12 @@ from enum import Enum, unique
 class MessageType(Enum):
     MESSAGE = 1
     WAKEUP = 2
+    PROVE = 3  # 服务器发起请求证明
+    CLIENT_SWITCH_PUBLIC = 4  # 客户端交换公钥
+    MANAGE_SWITCH_PUBLIC = 5  # 管理者交换公钥
+    CLIENT_PRO = 6 #客户端提交PRO
+
+
 
     def __lt__(self, other):
         return self.value < other.value

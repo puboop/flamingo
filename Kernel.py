@@ -1,10 +1,14 @@
 import numpy as np
 import pandas as pd
-
+import time
 import os, queue, sys
 from message.Message import MessageType
+from agent.flamingo.SA_Manage import SA_Manage as Manage
+from agent.flamingo.SA_ClientAgent import SA_ClientAgent as Client
 
 from util.util import log_print
+
+from agent.flamingo.SA_ServiceAgent import SA_ServiceAgent as Service
 
 
 class Kernel:
@@ -22,6 +26,11 @@ class Kernel:
         # A single message queue to keep everything organized by increasing
         # delivery timestamp.
         self.messages = queue.PriorityQueue()
+
+        self.prove_queue = queue.Queue()
+
+        # 客户端向服务器传PRO时用到的队列
+        self.Client_PRO_queue = queue.Queue()
 
         # currentTime is None until after kernelStarting() event completes
         # for all agents.  This is a pd.Timestamp that includes the date.
@@ -269,6 +278,72 @@ class Kernel:
                                      "currentTime:", self.currentTime,
                                      "messageType:", self.msg.type)
 
+            #############服务器请求证明消息发送####################
+            # 通过 findAgentByType(Service) 方法查找类型为 Service 的代理的 ID，并将其赋值给 service_id。
+            service_id = self.findAgentByType(Service)
+            # 通过 service_id，找到该代理（ServiceAgent），并调用其 send_request_prove() 方法，
+            # 发出证明请求。这是一个跳转到 SA_ServiceAgent.py 文件的调用。
+            self.agents[service_id].send_request_prove()
+            # 这里的 while not req_prove_handle: 是一个无限循环，等待接收“证明请求”的结果。
+            # 程序会不断尝试从 prove_queue 中获取消息，处理不同类型的消息，直到处理完成。
+            self.all_manager = self.findAgentsByType(Manage)
+            self.all_clients = self.findAgentsByType(Client)
+            while not all(
+                    map(lambda x: x.agg_finish, self.all_manager + self.all_clients)) and self.prove_queue.empty():
+                try:
+                    get_data = self.prove_queue.get_nowait()
+                except:
+                    time.sleep(1)
+                    continue
+                msg_type, msg = get_data
+                if msg_type == MessageType.PROVE:
+                    # 如果从队列中获取的消息类型是 PROVE，则执行相应操作——调用客户端的 send_dh_public_key() 方法，
+                    # 启动 Diffie-Hellman 公钥交换流程。客户端给管理者发公钥
+                    msg.client_obj.send_dh_public_key()
+                elif msg_type == MessageType.CLIENT_SWITCH_PUBLIC:
+                    # 如果从队列中获取的消息类型是 CLIENT_SWITCH_PUBLIC，则管理者在给客户端发公钥且自己算共享密钥
+                    self.agents[msg.manage_id].send_dh_public_key(msg.id, msg.dh_public_key)
+                    self.agents[msg.manage_id].aggregation_clients_public_key()
+                elif msg_type == MessageType.MANAGE_SWITCH_PUBLIC:
+                    # 如果消息类型为MANAGE_SWITCH_PUBLIC，则客户端在给管理者发公钥
+                    self.agents[msg.client_id].receive_manage_public_key(msg.id, msg.dh_public_key)
+                    self.agents[msg.client_id].aggregation_manages_public_key()
+                    # ①服务器→PROVE→客户端。②客户端→CLIENT_SWITCH_PUBLIC→管理者。③管理者→MANAGE_SWITCH_PUBLIC→客户端
+                    # ①如果type是PROVE，客户端立刻执行send_dh_public_key，生成公钥以及type为CLIENT_SWITCH_PUBLIC的消息。
+                    # ②type是CLIENT_SWITCH_PUBLIC，服务器立刻执行send_dh_public_key，生成公钥、共享密钥以及type为MANAGE_SWITCH_PUBLIC的消息。
+                    # ③type是MANAGE_SWITCH_PUBLIC，客户端应该立刻执行receive_manage_public_key了吧，生成共享密钥
+                    # 所以应该是：
+                    # elif msg_type == MessageType.MANAGE_SWITCH_PUBLIC:
+                    # self.agents[msg.client_id].receive_manage_public_key(msg.id, msg.dh_public_key)
+
+                    # 客户端对称解密ct，得到Km和manage_alpha。括号里的参数是？
+                    self.agents[msg.client_id].receive_cipher_text()
+                    # 客户端聚合alpha,括号里是？
+                    self.agents[msg.client_id].aggregation_manages_alpha()
+                    # 客户端聚合K，括号里是？
+                    self.agents[msg.client_id].aggregation_manages_Km()
+                    # 客户端计算和发送各自的PRO，括号里是？
+                    self.agents[msg.client_id].send_Client_PRO()
+
+                # 如果消息类型为CLIENT_PRO，服务器执行send_aggregation_result
+                elif msg_type == MessageType.CLIENT_PRO:
+                    self.agents[service_id].send_aggregation_result()
+                    # 服务器应该执行send_aggregation_result，服务器id emmm
+
+            tmp = list()
+            for manage in self.all_manager:
+                tmp.append(manage.send_cipher_text())
+
+            for manage in tmp:
+                for client, encrypt in manage.items():
+                    client.receive_cipher_text(encrypt)
+            clients_pro = []
+            for client in self.all_clients:
+                clients_pro.append(client.count_manage_m_k())
+            server_id = self.findAgentByType(Service)
+            self.agents[server_id].count_clients_pro(clients_pro)
+            ###################################################
+
             if self.messages.empty():
                 log_print("\n--- Kernel Event Queue empty ---")
 
@@ -475,6 +550,13 @@ class Kernel:
         for agent in self.agents:
             if isinstance(agent, type):
                 return agent.id
+
+    def findAgentsByType(self, type):
+        agents = list()
+        for agent in self.agents:
+            if isinstance(agent, type):
+                agents.append(agent)
+        return agents
 
     def writeLog(self, sender, dfLog, filename=None):
         # Called by any agent, usually at the very end of the simulation just before
